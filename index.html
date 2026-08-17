@@ -119,10 +119,11 @@
   .pericial-bloque{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-bottom:22px;}
   .pericial-bloque h3{margin:0 0 14px;font-size:16px;color:var(--folder-dark);font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;}
   .pericial-bloque h3 .fuente{color:var(--brass);}
-  .puntos-list{list-style:none;margin:0;padding:0;}
-  .puntos-list li{position:relative;padding:6px 0 6px 22px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
+  .puntos-list{list-style:decimal;margin:0;padding-left:22px;counter-reset:none;}
+  .puntos-list li{padding:6px 0 6px 4px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
   .puntos-list li:last-child{border-bottom:none;}
-  .puntos-list li::before{content:'▸';position:absolute;left:2px;color:var(--brass);}
+  .puntos-list li::marker{color:var(--brass);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .pericial-sin{font-size:14px;color:var(--slate);font-style:italic;}
   .liq-table{width:100%;border-collapse:collapse;font-size:14px;}
   .liq-table td{padding:8px 4px;border-bottom:1px solid var(--paper-2);}
   .liq-table td:last-child{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
@@ -231,6 +232,7 @@
     <input type="hidden" id="f-id">
     <input type="hidden" id="f-datos-clave">
     <input type="hidden" id="f-puntos-periciales">
+    <input type="hidden" id="f-postura-pericial">
     <input type="hidden" id="f-liquidacion">
 
     <div class="ai-box" id="ai-box">
@@ -681,12 +683,17 @@ function renderRoute(){
   }
 }
 
-function renderPuntosPericialesBloque(fuente, puntos){
-  if(!Array.isArray(puntos) || puntos.length === 0) return '';
+function renderPuntosPericialesBloque(fuente, puntos, postura){
+  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+  const tienePostura = postura && postura.trim();
+  if(!tienePuntos && !tienePostura) return '';
   return `
     <div class="pericial-bloque">
       <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
-      <ul class="puntos-list">${puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ul>
+      ${tienePostura
+        ? `<div class="pericial-sin">${escapeHtml(postura)}</div>`
+        : `<ol class="puntos-list">${puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>`
+      }
     </div>`;
 }
 
@@ -703,10 +710,10 @@ function renderLiquidacionBloque(fuente, liquidacion){
 
 function renderPericial(p){
   const bloques = [];
-  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales));
+  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial));
   bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion));
   (p.documentos || []).forEach(doc => {
-    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales));
+    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial));
     bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion));
   });
   const contenido = bloques.filter(Boolean).join('');
@@ -872,6 +879,9 @@ async function analizarConIA(){
     if(Array.isArray(r.puntos_periciales) && r.puntos_periciales.length){
       document.getElementById('f-puntos-periciales').value = JSON.stringify(r.puntos_periciales);
     }
+    if(r.postura_pericial){
+      document.getElementById('f-postura-pericial').value = r.postura_pericial;
+    }
     if(Array.isArray(r.liquidacion) && r.liquidacion.length){
       document.getElementById('f-liquidacion').value = JSON.stringify(r.liquidacion);
     }
@@ -940,6 +950,7 @@ async function analizarNovedadConIA(){
         fecha: r.fecha || new Date().toISOString().slice(0,10),
         datos_clave: Array.isArray(r.datos_clave) ? r.datos_clave : [],
         puntos_periciales: Array.isArray(r.puntos_periciales) ? r.puntos_periciales : [],
+        postura_pericial: r.postura_pericial || '',
         liquidacion: Array.isArray(r.liquidacion) ? r.liquidacion : [],
         resumen: r.resumen || ''
       };
@@ -972,7 +983,7 @@ function renderAiPreview(){
     <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:8px;">${escapeHtml(d.tipo_documento)} · ${fmtDate(d.fecha)}</div>
     ${renderDatosClaveGrid(d.datos_clave)}
     <div style="font-size:14px;line-height:1.5;margin-top:10px;">${escapeHtml(d.resumen)}</div>
-    ${d.puntos_periciales && d.puntos_periciales.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Puntos periciales detectados</span><ul class="puntos-list">${d.puntos_periciales.map(pt=>`<li>${escapeHtml(pt)}</li>`).join('')}</ul></div>` : ''}
+    ${d.postura_pericial ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Postura sobre la prueba pericial</span><div class="pericial-sin">${escapeHtml(d.postura_pericial)}</div></div>` : (d.puntos_periciales && d.puntos_periciales.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Puntos periciales detectados</span><ol class="puntos-list">${d.puntos_periciales.map(pt=>`<li>${escapeHtml(pt)}</li>`).join('')}</ol></div>` : '')}
     ${d.liquidacion && d.liquidacion.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Liquidación detectada</span><table class="liq-table">${d.liquidacion.map(r=>`<tr><td>${escapeHtml(r.rubro||'')}</td><td>${escapeHtml(r.monto||'')}</td></tr>`).join('')}</table></div>` : ''}
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-brass btn-small" onclick="confirmarDocumentoPrincipal()">Agregar como documento principal</button>
@@ -1028,6 +1039,7 @@ function openForm(id){
     document.getElementById('f-resumen').value = p.resumen || '';
     document.getElementById('f-datos-clave').value = JSON.stringify(p.datos_clave || []);
     document.getElementById('f-puntos-periciales').value = JSON.stringify(p.puntos_periciales || []);
+    document.getElementById('f-postura-pericial').value = p.postura_pericial || '';
     document.getElementById('f-liquidacion').value = JSON.stringify(p.liquidacion || []);
     document.getElementById('f-estado').value = p.estado;
     document.getElementById('f-vencimiento').value = p.vencimiento || '';
@@ -1042,6 +1054,7 @@ function openForm(id){
     document.getElementById('f-resumen').value = '';
     document.getElementById('f-datos-clave').value = '[]';
     document.getElementById('f-puntos-periciales').value = '[]';
+    document.getElementById('f-postura-pericial').value = '';
     document.getElementById('f-liquidacion').value = '[]';
     document.getElementById('f-estado').value = 'Designada / aceptación pendiente';
     document.getElementById('f-vencimiento').value = '';
@@ -1067,6 +1080,7 @@ async function saveForm(){
   try{ datosClave = JSON.parse(document.getElementById('f-datos-clave').value || '[]'); }catch(e){ datosClave = []; }
   let puntosPericiales = [];
   try{ puntosPericiales = JSON.parse(document.getElementById('f-puntos-periciales').value || '[]'); }catch(e){ puntosPericiales = []; }
+  const posturaPericial = document.getElementById('f-postura-pericial').value.trim();
   let liquidacion = [];
   try{ liquidacion = JSON.parse(document.getElementById('f-liquidacion').value || '[]'); }catch(e){ liquidacion = []; }
   const estado = document.getElementById('f-estado').value;
@@ -1076,10 +1090,10 @@ async function saveForm(){
   let message;
   if(id){
     const p = pericias.find(x => x.id === id);
-    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, liquidacion, estado, vencimiento });
+    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, postura_pericial: posturaPericial, liquidacion, estado, vencimiento });
     message = `Actualiza pericia expte. ${expediente || id}`;
   } else {
-    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, liquidacion, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [], documentos: [] });
+    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, postura_pericial: posturaPericial, liquidacion, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [], documentos: [] });
     message = `Nueva pericia expte. ${expediente || 's/n°'}`;
   }
   renderAll();
