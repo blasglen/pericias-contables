@@ -134,6 +134,13 @@
   .liq-table td{padding:8px 4px;border-bottom:1px solid var(--paper-2);}
   .liq-table td:last-child{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
   .liq-table tr.total td{border-top:2px solid var(--folder-dark);border-bottom:none;font-weight:700;padding-top:10px;}
+  .liq-table td.clickable{cursor:pointer;}
+  .liq-table tr.clickable-row:hover td{background:var(--paper-2);}
+  .calculo-item{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:16px 18px;margin-bottom:14px;}
+  .calculo-item .rubro{font-weight:bold;font-size:15px;color:var(--folder-dark);display:flex;justify-content:space-between;gap:12px;}
+  .calculo-item .monto{font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
+  .calculo-item .detalle{margin-top:8px;font-size:14px;line-height:1.5;color:var(--ink);}
+  .calculo-item .sin-detalle{margin-top:8px;font-size:13px;color:var(--slate);font-style:italic;}
   .pericial-empty{color:var(--slate);font-style:italic;font-size:14px;}
   .ficha-madre-actions{display:flex;gap:8px;margin-top:16px;}
 
@@ -238,6 +245,12 @@
   <div id="view-pericial" class="hidden">
     <button class="btn btn-ghost btn-small" id="btn-volver-detalle" style="margin-bottom:18px;">← Volver al expediente</button>
     <div id="pericial-content"></div>
+  </div>
+
+  <!-- VISTA: desglose del cálculo de una liquidación puntual -->
+  <div id="view-liquidacion" class="hidden">
+    <button class="btn btn-ghost btn-small" id="btn-volver-pericial" style="margin-bottom:18px;">← Volver a Pericial Contable</button>
+    <div id="liquidacion-content"></div>
   </div>
 </div>
 
@@ -665,6 +678,8 @@ function renderAll(){ populateFilters(); renderStats(); renderRoute(); }
 /* ---------- Ruteo (hash: '' = listado, 'p/ID' = detalle de un juicio) ---------- */
 function currentRoute(){
   const hash = location.hash.replace(/^#/, '');
+  const mLiq = hash.match(/^p\/([^/]+)\/liquidacion\/([^/]+)$/);
+  if(mLiq) return { view:'liquidacion', id: mLiq[1], origen: decodeURIComponent(mLiq[2]) };
   const mPericial = hash.match(/^p\/(.+)\/pericial$/);
   if(mPericial) return { view:'pericial', id: mPericial[1] };
   const m = hash.match(/^p\/(.+)$/);
@@ -676,27 +691,44 @@ function renderRoute(){
   const viewList = document.getElementById('view-list');
   const viewDetail = document.getElementById('view-detail');
   const viewPericial = document.getElementById('view-pericial');
+  const viewLiquidacion = document.getElementById('view-liquidacion');
+  const todas = [viewList, viewDetail, viewPericial, viewLiquidacion];
 
-  if(route.view === 'pericial'){
+  if(route.view === 'liquidacion'){
     const p = pericias.find(x => x.id === route.id);
     if(!p){ location.hash = ''; return; }
-    viewList.classList.add('hidden');
-    viewDetail.classList.add('hidden');
+    todas.forEach(v => v.classList.add('hidden'));
+    viewLiquidacion.classList.remove('hidden');
+    renderLiquidacionDetalle(p, route.origen);
+  } else if(route.view === 'pericial'){
+    const p = pericias.find(x => x.id === route.id);
+    if(!p){ location.hash = ''; return; }
+    todas.forEach(v => v.classList.add('hidden'));
     viewPericial.classList.remove('hidden');
     renderPericial(p);
   } else if(route.view === 'detail'){
     const p = pericias.find(x => x.id === route.id);
     if(!p){ location.hash = ''; return; }
-    viewList.classList.add('hidden');
-    viewPericial.classList.add('hidden');
+    todas.forEach(v => v.classList.add('hidden'));
     viewDetail.classList.remove('hidden');
     renderDetail(p);
   } else {
-    viewDetail.classList.add('hidden');
-    viewPericial.classList.add('hidden');
+    todas.forEach(v => v.classList.add('hidden'));
     viewList.classList.remove('hidden');
     renderList();
   }
+}
+
+/* ---------- Utilidad: parsear/formatear montos en formato AR ($1.234.567,89) ---------- */
+function parseMonto(str){
+  if(!str) return 0;
+  let s = String(str).replace(/[^\d.,\-]/g, '');
+  s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+function formatMonto(n){
+  return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 function renderPuntosPericialesBloque(fuente, puntos, postura){
@@ -713,13 +745,18 @@ function renderPuntosPericialesBloque(fuente, puntos, postura){
     </div>`;
 }
 
-function renderLiquidacionBloque(fuente, liquidacion){
+function renderLiquidacionBloque(fuente, liquidacion, origen, periciaId){
   if(!Array.isArray(liquidacion) || liquidacion.length === 0) return '';
+  const total = liquidacion.reduce((sum, r) => sum + parseMonto(r.monto), 0);
   return `
     <div class="pericial-bloque">
-      <h3>Liquidación <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
+      <h3 class="clickable" style="cursor:pointer;" onclick="location.hash='p/${periciaId}/liquidacion/${encodeURIComponent(origen)}'">
+        Liquidación <span class="fuente">· ${escapeHtml(fuente)}</span>
+        <span style="font-size:11px;color:var(--slate);text-transform:none;font-weight:normal;">→ ver cómo se calculó cada rubro</span>
+      </h3>
       <table class="liq-table">
         ${liquidacion.map(r => `<tr><td>${escapeHtml(r.rubro || '')}</td><td>${escapeHtml(r.monto || '')}</td></tr>`).join('')}
+        <tr class="total"><td>Total</td><td>${formatMonto(total)}</td></tr>
       </table>
     </div>`;
 }
@@ -727,15 +764,44 @@ function renderLiquidacionBloque(fuente, liquidacion){
 function renderPericial(p){
   const bloques = [];
   bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial));
-  bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion));
+  bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion, 'demanda', p.id));
   (p.documentos || []).forEach(doc => {
     bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial));
-    bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion));
+    bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion, doc.id, p.id));
   });
   const contenido = bloques.filter(Boolean).join('');
   document.getElementById('pericial-content').innerHTML = contenido || `
     <div class="pericial-empty">Todavía no hay puntos periciales ni liquidaciones cargadas para este expediente.
     Se completan solos cuando la demanda o la contestación los mencionan y los analizás con IA.</div>`;
+}
+
+function renderLiquidacionDetalle(p, origen){
+  let fuente, liquidacion;
+  if(origen === 'demanda'){
+    fuente = 'Demanda';
+    liquidacion = p.liquidacion || [];
+  } else {
+    const doc = (p.documentos || []).find(d => d.id === origen);
+    fuente = doc ? doc.tipo_documento : 'Documento';
+    liquidacion = doc ? (doc.liquidacion || []) : [];
+  }
+  const total = liquidacion.reduce((sum, r) => sum + parseMonto(r.monto), 0);
+
+  const items = liquidacion.map(r => `
+    <div class="calculo-item">
+      <div class="rubro"><span>${escapeHtml(r.rubro || '')}</span><span class="monto">${escapeHtml(r.monto || '')}</span></div>
+      ${r.detalle_calculo
+        ? `<div class="detalle">${escapeHtml(r.detalle_calculo)}</div>`
+        : `<div class="sin-detalle">El escrito no detalla cómo se calculó este rubro, solo indica el monto.</div>`
+      }
+    </div>`).join('');
+
+  document.getElementById('liquidacion-content').innerHTML = `
+    <h2 style="color:var(--folder-dark);margin-bottom:2px;">Liquidación · ${escapeHtml(fuente)}</h2>
+    <p style="color:var(--slate);font-size:13px;margin:0 0 20px;">${escapeHtml(p.caratula || '')}</p>
+    ${items || '<div class="pericial-empty">No hay rubros cargados.</div>'}
+    ${liquidacion.length ? `<div class="calculo-item" style="border:none;background:transparent;padding-top:0;"><div class="rubro" style="font-size:17px;"><span>Total</span><span class="monto">${formatMonto(total)}</span></div></div>` : ''}
+  `;
 }
 
 function renderDatosClaveGrid(datosClave){
@@ -1278,6 +1344,10 @@ document.getElementById('btn-pericial').addEventListener('click', () => {
 document.getElementById('btn-volver-detalle').addEventListener('click', () => {
   const route = currentRoute();
   if(route.id) location.hash = 'p/' + route.id;
+});
+document.getElementById('btn-volver-pericial').addEventListener('click', () => {
+  const route = currentRoute();
+  if(route.id) location.hash = 'p/' + route.id + '/pericial';
 });
 document.getElementById('btn-buscar').addEventListener('click', () => {
   const box = document.getElementById('buscar-box');
