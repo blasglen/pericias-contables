@@ -175,6 +175,17 @@
   <div id="view-detail" class="hidden">
     <button class="btn btn-ghost btn-small" id="btn-volver" style="margin-bottom:18px;">← Volver al listado</button>
     <div id="detail-header"></div>
+
+    <div class="ai-box" id="detail-ai-box" style="margin-top:24px;">
+      <label>Analizar un nuevo documento con IA (contestación, ampliación, cédula, resolución, etc.)</label>
+      <textarea id="detail-ai-texto" rows="3" placeholder="Pegá acá el texto del nuevo documento…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="detail-ai-archivo" accept="image/*,application/pdf" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">
+        <button class="btn btn-ghost btn-small" id="btn-detail-ai-analizar" type="button">Analizar y completar novedad</button>
+      </div>
+      <div id="detail-ai-status" class="hint" style="margin:6px 0 0;"></div>
+    </div>
+
     <div class="timeline-title" style="margin-top:24px;">Novedades</div>
     <div class="add-novedad" style="margin-bottom:22px;">
       <input type="date" id="detail-nov-fecha" value="">
@@ -642,6 +653,10 @@ function renderDetail(p){
     </div>
   `;
   document.getElementById('detail-nov-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('detail-ai-texto').value = '';
+  document.getElementById('detail-ai-archivo').value = '';
+  document.getElementById('detail-ai-status').textContent = '';
+  document.getElementById('detail-ai-box').style.display = (config && config.workerUrl) ? 'block' : 'none';
 
   const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   const container = document.getElementById('detail-novedades');
@@ -715,9 +730,9 @@ async function analizarConIA(){
   try{
     if(file){
       const base64 = await fileToBase64(file);
-      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf' };
+      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf', tipo: 'inicial' };
     } else {
-      body = { mode: 'text', text: texto };
+      body = { mode: 'text', text: texto, tipo: 'inicial' };
     }
   }catch(e){
     statusDiv.textContent = 'No se pudo leer el archivo.';
@@ -748,6 +763,65 @@ async function analizarConIA(){
     if(r.resumen) document.getElementById('f-resumen').value = r.resumen;
     statusDiv.style.color = 'var(--ok)';
     statusDiv.textContent = '✓ Listo — revisá los campos antes de guardar, la IA puede equivocarse.';
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+  btn.disabled = false;
+}
+
+async function analizarNovedadConIA(){
+  const statusDiv = document.getElementById('detail-ai-status');
+  const btn = document.getElementById('btn-detail-ai-analizar');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA. Podés cargar la novedad a mano.';
+    return;
+  }
+
+  const texto = document.getElementById('detail-ai-texto').value.trim();
+  const fileInput = document.getElementById('detail-ai-archivo');
+  const file = fileInput.files[0];
+
+  if(!texto && !file){
+    statusDiv.textContent = 'Pegá un texto o elegí un archivo primero.';
+    return;
+  }
+
+  let body;
+  try{
+    if(file){
+      const base64 = await fileToBase64(file);
+      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf', tipo: 'novedad' };
+    } else {
+      body = { mode: 'text', text: texto, tipo: 'novedad' };
+    }
+  }catch(e){
+    statusDiv.textContent = 'No se pudo leer el archivo.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.textContent = 'Analizando con IA…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo analizar (' + (data.error || res.status) + '). Revisá el Worker o cargá a mano.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    if(r.fecha) document.getElementById('detail-nov-fecha').value = r.fecha;
+    if(r.resumen_novedad) document.getElementById('detail-nov-texto').value = r.resumen_novedad;
+    statusDiv.style.color = 'var(--ok)';
+    statusDiv.textContent = '✓ Listo — revisá el texto de abajo antes de tocar "Agregar", la IA puede equivocarse.';
   }catch(e){
     statusDiv.style.color = 'var(--alert)';
     statusDiv.textContent = 'Error de conexión con el Worker.';
@@ -892,6 +966,7 @@ document.getElementById('cfg-pin').addEventListener('keydown', (e) => { if(e.key
 document.getElementById('btn-volver').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
 document.getElementById('btn-ai-analizar').addEventListener('click', analizarConIA);
+document.getElementById('btn-detail-ai-analizar').addEventListener('click', analizarNovedadConIA);
 window.addEventListener('hashchange', renderRoute);
 
 (async function init(){
