@@ -762,7 +762,7 @@ async function analizarConIA(){
     if(r.estado) document.getElementById('f-estado').value = r.estado;
     if(r.resumen) document.getElementById('f-resumen').value = r.resumen;
     statusDiv.style.color = 'var(--ok)';
-    statusDiv.textContent = '✓ Listo — revisá los campos antes de guardar, la IA puede equivocarse.';
+    statusDiv.textContent = '✓ Listo — revisá los campos antes de guardar, la IA puede equivocarse.' + (data.truncado ? ' (Aviso: el texto era muy largo y se analizó solo una parte.)' : '');
   }catch(e){
     statusDiv.style.color = 'var(--alert)';
     statusDiv.textContent = 'Error de conexión con el Worker.';
@@ -821,7 +821,7 @@ async function analizarNovedadConIA(){
     if(r.fecha) document.getElementById('detail-nov-fecha').value = r.fecha;
     if(r.resumen_novedad) document.getElementById('detail-nov-texto').value = r.resumen_novedad;
     statusDiv.style.color = 'var(--ok)';
-    statusDiv.textContent = '✓ Listo — revisá el texto de abajo antes de tocar "Agregar", la IA puede equivocarse.';
+    statusDiv.textContent = '✓ Listo — revisá el texto de abajo antes de tocar "Agregar", la IA puede equivocarse.' + (data.truncado ? ' (Aviso: el texto era muy largo y se analizó solo una parte.)' : '');
   }catch(e){
     statusDiv.style.color = 'var(--alert)';
     statusDiv.textContent = 'Error de conexión con el Worker.';
