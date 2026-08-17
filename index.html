@@ -851,6 +851,13 @@ async function submitPin(){
     setLoginStatus('Verificando PIN…');
     const blob = await fetchEncryptedConfig();
     const decoded = await decryptConfig(pin, blob); // {owner, repo, branch, token}
+    if(decoded.workerUrl){
+      decoded.workerUrl = decoded.workerUrl.trim();
+      if(decoded.workerUrl && !/^https?:\/\//i.test(decoded.workerUrl)){
+        decoded.workerUrl = 'https://' + decoded.workerUrl;
+      }
+      decoded.workerUrl = decoded.workerUrl.replace(/\/+$/, ''); // sin barra final
+    }
     const dataKey = await deriveDataKey(pin, b64ToBytes(blob.salt), blob.iterations);
     decoded.dataKey = dataKey;
     saveSessionConfig(decoded);
