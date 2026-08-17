@@ -104,6 +104,12 @@
 
   /* Vista de detalle */
   .ficha-madre{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:8px;}
+  @keyframes resaltarBloque{
+    0%{box-shadow:0 0 0 3px var(--brass);}
+    70%{box-shadow:0 0 0 3px var(--brass);}
+    100%{box-shadow:0 0 0 0 transparent;}
+  }
+  .resaltado{animation:resaltarBloque 2.2s ease-out;}
   .ficha-madre::before{content:attr(data-tab-label);position:absolute;top:-15px;left:18px;background:var(--folder-dark);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
   .ficha-madre.ficha-documento::before{background:var(--brass);}
   .ficha-madre h2{margin:0 0 4px;font-size:20px;color:var(--folder-dark);}
@@ -191,9 +197,19 @@
 
   <!-- VISTA: detalle de un juicio -->
   <div id="view-detail" class="hidden">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
       <button class="btn btn-ghost btn-small" id="btn-volver">← Volver al listado</button>
-      <button class="btn btn-brass btn-small" id="btn-pericial">📊 Pericial Contable</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-small" id="btn-buscar">🔎 Buscar</button>
+        <button class="btn btn-brass btn-small" id="btn-pericial">📊 Pericial Contable</button>
+      </div>
+    </div>
+    <div id="buscar-box" class="ai-box hidden" style="margin-bottom:18px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="buscar-input" placeholder="Ej: aceptación del cargo" style="flex:1;min-width:200px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);">
+        <button class="btn btn-brass btn-small" id="btn-buscar-ir">Buscar</button>
+      </div>
+      <div id="buscar-status" class="hint" style="margin:8px 0 0;"></div>
     </div>
     <div id="detail-header"></div>
     <div id="detail-documentos"></div>
@@ -733,7 +749,7 @@ function renderDetail(p){
   const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
   const vClass = venciClass(p.vencimiento, p.estado);
   document.getElementById('detail-header').innerHTML = `
-    <div class="ficha-madre" data-tab-label="DESIGNACIÓN · EXPEDIENTE">
+    <div class="ficha-madre" id="bloque-header" data-tab-label="DESIGNACIÓN · EXPEDIENTE">
       <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
       <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')}</div>
       <div class="ficha-madre-grid">
@@ -753,7 +769,7 @@ function renderDetail(p){
 
   const documentos = p.documentos || [];
   document.getElementById('detail-documentos').innerHTML = documentos.map(doc => `
-    <div class="ficha-madre ficha-documento" data-tab-label="${escapeHtml((doc.tipo_documento || 'Documento').toUpperCase())} · ${fmtDate(doc.fecha)}">
+    <div class="ficha-madre ficha-documento" id="bloque-doc-${doc.id}" data-tab-label="${escapeHtml((doc.tipo_documento || 'Documento').toUpperCase())} · ${fmtDate(doc.fecha)}">
       <div class="doc-actions">
         <button class="nov-del" onclick="deleteDocumento('${p.id}','${doc.id}')">Eliminar</button>
       </div>
@@ -769,13 +785,16 @@ function renderDetail(p){
   document.getElementById('detail-ai-preview').classList.add('hidden');
   document.getElementById('detail-ai-preview').innerHTML = '';
   document.getElementById('detail-ai-box').style.display = (config && config.workerUrl) ? 'block' : 'none';
+  document.getElementById('buscar-box').classList.add('hidden');
+  document.getElementById('buscar-input').value = '';
+  document.getElementById('buscar-status').textContent = '';
 
   const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   const container = document.getElementById('detail-novedades');
   container.innerHTML = novedadesOrdenadas.length === 0
     ? '<div class="no-novedades">Sin novedades registradas todavía. Agregá la primera abajo.</div>'
     : novedadesOrdenadas.map(n => `
-        <article class="nov-card" data-tab-label="${fmtDate(n.fecha)}">
+        <article class="nov-card" id="bloque-nov-${n.id}" data-tab-label="${fmtDate(n.fecha)}">
           <button class="nov-del" onclick="deleteNovedad('${p.id}','${n.id}')">Eliminar</button>
           <div class="nov-texto">${escapeHtml(n.texto)}</div>
         </article>
@@ -1024,6 +1043,84 @@ async function deleteDocumento(periciaId, docId){
   await persist(`Elimina documento en expte. ${p.expediente || p.id}`);
 }
 
+/* ---------- Búsqueda con IA dentro de un juicio ---------- */
+function armarBloquesBusqueda(p){
+  const bloques = [];
+  const textoHeader = [
+    p.resumen || '',
+    ...(p.datos_clave || []).map(d => `${d.label}: ${d.valor}`)
+  ].filter(Boolean).join(' — ');
+  bloques.push({ id: 'header', texto: `Ficha del expediente (designación, estado, datos generales). ${textoHeader}` });
+
+  (p.documentos || []).forEach(doc => {
+    const textoDoc = [
+      doc.resumen || '',
+      ...(doc.datos_clave || []).map(d => `${d.label}: ${d.valor}`),
+      ...(doc.puntos_periciales || []),
+      doc.postura_pericial || ''
+    ].filter(Boolean).join(' — ');
+    bloques.push({ id: 'doc-' + doc.id, texto: `${doc.tipo_documento || 'Documento'} (${fmtDate(doc.fecha)}). ${textoDoc}` });
+  });
+
+  (p.novedades || []).forEach(n => {
+    bloques.push({ id: 'nov-' + n.id, texto: `Novedad del ${fmtDate(n.fecha)}. ${n.texto}` });
+  });
+
+  return bloques;
+}
+
+function irABloque(id){
+  const el = document.getElementById('bloque-' + id);
+  if(!el) return false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('resaltado');
+  void el.offsetWidth; // reinicia la animación si ya se había resaltado antes
+  el.classList.add('resaltado');
+  return true;
+}
+
+async function ejecutarBusqueda(){
+  const route = currentRoute();
+  if(route.view !== 'detail') return;
+  const p = pericias.find(x => x.id === route.id);
+  const query = document.getElementById('buscar-input').value.trim();
+  const statusDiv = document.getElementById('buscar-status');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!query){ statusDiv.textContent = 'Escribí qué estás buscando.'; return; }
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA — sin eso, la búsqueda no funciona.';
+    return;
+  }
+
+  const bloques = armarBloquesBusqueda(p);
+  statusDiv.textContent = 'Buscando…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify({ tipo: 'buscar', query, bloques })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result || !data.result.mejor_id){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo buscar (' + (data.error || res.status) + ').';
+      return;
+    }
+    const encontrado = irABloque(data.result.mejor_id);
+    if(encontrado){
+      statusDiv.style.color = 'var(--ok)';
+      statusDiv.textContent = '✓ Encontrado.';
+    } else {
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'La IA no encontró una coincidencia clara para esa búsqueda.';
+    }
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+}
+
 function openForm(id){
   const overlay = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-title');
@@ -1182,6 +1279,13 @@ document.getElementById('btn-volver-detalle').addEventListener('click', () => {
   const route = currentRoute();
   if(route.id) location.hash = 'p/' + route.id;
 });
+document.getElementById('btn-buscar').addEventListener('click', () => {
+  const box = document.getElementById('buscar-box');
+  box.classList.toggle('hidden');
+  if(!box.classList.contains('hidden')) document.getElementById('buscar-input').focus();
+});
+document.getElementById('btn-buscar-ir').addEventListener('click', ejecutarBusqueda);
+document.getElementById('buscar-input').addEventListener('keydown', (e) => { if(e.key === 'Enter') ejecutarBusqueda(); });
 document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
 document.getElementById('btn-ai-analizar').addEventListener('click', analizarConIA);
 document.getElementById('btn-detail-ai-analizar').addEventListener('click', analizarNovedadConIA);
