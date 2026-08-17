@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Pericias Contables</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#182620; --paper:#EFEAE0; --paper-2:#E6E0D2;
+    --folder:#3B5240; --folder-dark:#243329;
+    --brass:#A67C3D; --brass-dark:#8A6530;
+    --alert:#9B3B3B; --warn:#C08A2E; --ok:#4B7455; --teal:#3F6470; --slate:#7A7A6E;
+    --line:#C9C0AC; --white-ish:#FBF9F4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:'Source Serif 4',Georgia,serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'IBM Plex Mono','Courier New',monospace;}
+  #app{max-width:1100px;margin:0 auto;padding:28px 24px 80px;}
+
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double var(--folder-dark);padding-bottom:16px;margin-bottom:14px;gap:16px;flex-wrap:wrap;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--folder-dark);text-transform:uppercase;margin-bottom:4px;}
+  .masthead h1{margin:0;font-size:30px;font-weight:700;color:var(--folder-dark);}
+  .masthead-actions{display:flex;gap:8px;}
+  .btn{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;border:none;border-radius:3px;padding:11px 18px;cursor:pointer;transition:transform .12s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+  .btn-brass{background:var(--brass);color:var(--white-ish);}
+  .btn-brass:hover{background:var(--brass-dark);}
+  .btn-ghost{background:transparent;color:var(--folder-dark);border:1px solid var(--line);}
+  .btn-alert{background:var(--alert);color:var(--white-ish);}
+  .btn-small{padding:6px 12px;font-size:11px;}
+
+  .conn-bar{
+    display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    padding:8px 12px;border-radius:3px;margin-bottom:20px;
+  }
+  .conn-ok{background:#e4ede4;color:var(--folder-dark);border:1px solid #c3d5c4;}
+  .conn-warn{background:#f4e6d7;color:var(--warn);border:1px solid #e6cfa9;}
+  .conn-error{background:#f2dede;color:var(--alert);border:1px solid #e3bcbc;}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .stat-card{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:14px 16px;}
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--folder-dark);}
+  .stat-label{font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--slate);text-transform:uppercase;margin-top:2px;}
+  .stat-card.alert-stat .stat-num{color:var(--alert);}
+  .stat-card.warn-stat .stat-num{color:var(--warn);}
+
+  .controls{display:flex;gap:10px;margin-bottom:26px;flex-wrap:wrap;}
+  .controls input,.controls select{font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;background:var(--white-ish);color:var(--ink);}
+  #search{flex:1;min-width:220px;}
+  .controls select{cursor:pointer;}
+
+  #list{display:flex;flex-direction:column;gap:26px;}
+  .empty{text-align:center;padding:60px 20px;color:var(--slate);font-style:italic;}
+
+  .ficha{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;box-shadow:0 1px 0 rgba(0,0,0,.04);}
+  .ficha::before{content:attr(data-tab-label);position:absolute;top:-15px;left:18px;background:var(--tab-color,var(--slate));color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;text-transform:uppercase;}
+  .stamp{position:absolute;top:12px;right:18px;width:78px;height:78px;border-radius:50%;border:2px dashed var(--folder-dark);display:flex;align-items:center;justify-content:center;text-align:center;transform:rotate(-9deg);color:var(--folder-dark);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;opacity:.75;pointer-events:none;}
+
+  .ficha-header{display:grid;grid-template-columns:150px 1fr 160px 150px 120px;align-items:center;gap:14px;padding:22px 20px 16px;cursor:pointer;}
+  .expediente{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--folder-dark);font-weight:600;}
+  .caratula{font-size:16px;line-height:1.3;}
+  .caratula .juzgado-mini{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate);margin-top:3px;}
+  .badge-contador{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--paper-2);padding:5px 9px;border-radius:3px;text-align:center;color:var(--folder-dark);}
+  .estado-pill{font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-align:center;padding:6px 8px;border-radius:12px;color:var(--white-ish);}
+  .vencimiento{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
+  .vencimiento .lbl{display:block;font-size:9px;color:var(--slate);letter-spacing:.05em;}
+  .venc-ok{color:var(--ok);} .venc-warn{color:var(--warn);font-weight:600;} .venc-alert{color:var(--alert);font-weight:700;}
+
+  .ficha-body{border-top:1px solid var(--line);padding:18px 20px 22px;display:none;}
+  .ficha-body.open{display:block;}
+  .ficha-actions{display:flex;gap:8px;margin-bottom:18px;}
+  .timeline-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--folder-dark);margin:0 0 10px;}
+  .timeline{list-style:none;margin:0 0 16px;padding:0;border-left:2px solid var(--line);}
+  .timeline li{position:relative;padding:2px 0 14px 20px;}
+  .timeline li::before{content:'';position:absolute;left:-7px;top:5px;width:11px;height:11px;border-radius:50%;background:var(--brass);border:2px solid var(--white-ish);}
+  .timeline .nov-fecha{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--slate);}
+  .timeline .nov-texto{font-size:14.5px;margin-top:2px;}
+  .no-novedades{color:var(--slate);font-style:italic;font-size:13px;margin-bottom:16px;}
+
+  .add-novedad{display:flex;gap:8px;align-items:flex-start;}
+  .add-novedad input[type=date]{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:3px;}
+  .add-novedad textarea{flex:1;font-family:'Source Serif 4',serif;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;resize:vertical;min-height:38px;}
+
+  #modal-overlay{position:fixed;inset:0;background:rgba(24,38,32,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  #modal-overlay.hidden{display:none;}
+  .modal-box{background:var(--white-ish);border-radius:5px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:26px 28px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+  .modal-box h2{margin:0 0 8px;font-size:20px;color:var(--folder-dark);}
+  .modal-box p.hint{margin:0 0 18px;font-size:13px;color:var(--slate);line-height:1.5;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin-bottom:5px;}
+  .field input,.field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);}
+  .field input.mono{font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+  .modal-actions{display:flex;justify-content:space-between;margin-top:20px;gap:10px;}
+  .modal-actions .right{display:flex;gap:8px;}
+
+  @media (max-width:800px){
+    .ficha-header{grid-template-columns:1fr;text-align:left;gap:6px;}
+    .vencimiento{text-align:left;}
+    .estado-pill{width:fit-content;}
+    .stats{grid-template-columns:1fr 1fr;}
+    .stamp{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="masthead">
+    <div>
+      <div class="eyebrow">Libro de novedades · respaldado en GitHub</div>
+      <h1>Registro de Pericias Contables</h1>
+    </div>
+    <div class="masthead-actions">
+      <button class="btn btn-ghost" id="btn-config">⚙ Configuración</button>
+      <button class="btn btn-brass" id="btn-nueva">+ Nueva pericia</button>
+    </div>
+  </div>
+
+  <div id="conn-bar" class="conn-bar conn-warn"><span class="dot"></span><span id="conn-text">Sin configurar todavía</span></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
+    <select id="filter-contador"><option value="">Todos los contadores</option></select>
+    <select id="filter-estado"><option value="">Todos los estados</option></select>
+    <select id="sort-by">
+      <option value="vencimiento">Ordenar: vencimiento más próximo</option>
+      <option value="reciente">Ordenar: novedad más reciente</option>
+      <option value="expediente">Ordenar: n° de expediente</option>
+    </select>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<!-- MODAL: nueva/editar pericia -->
+<div id="modal-overlay" class="hidden">
+  <div class="modal-box">
+    <h2 id="modal-title">Nueva pericia</h2>
+    <input type="hidden" id="f-id">
+    <div class="field-row">
+      <div class="field"><label>N° de expediente</label><input id="f-expediente" placeholder="12345/2026"></div>
+      <div class="field"><label>Contador a cargo</label><input id="f-contador" list="contadores-list" placeholder="Nombre del contador"><datalist id="contadores-list"></datalist></div>
+    </div>
+    <div class="field"><label>Carátula / partes</label><input id="f-caratula" placeholder="Pérez, Juan c/ López, Ana s/ Daños y Perjuicios"></div>
+    <div class="field"><label>Juzgado / fuero</label><input id="f-juzgado" placeholder="Juzgado Civil y Comercial N° 4"></div>
+    <div class="field-row">
+      <div class="field">
+        <label>Estado actual</label>
+        <select id="f-estado">
+          <option>Designada / aceptación pendiente</option>
+          <option>Cargo aceptado</option>
+          <option>En elaboración</option>
+          <option>Presentada</option>
+          <option>Observada / impugnada</option>
+          <option>Contestación de impugnaciones</option>
+          <option>Homologada / finalizada</option>
+        </select>
+      </div>
+      <div class="field"><label>Próximo vencimiento</label><input id="f-vencimiento" type="date"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="left"><button class="btn btn-alert" id="btn-eliminar" style="display:none;">Eliminar pericia</button></div>
+      <div class="right"><button class="btn btn-ghost" id="btn-cancelar">Cancelar</button><button class="btn btn-brass" id="btn-guardar">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: configuración GitHub -->
+<div id="config-overlay" class="hidden">
+  <div class="modal-box">
+    <h2>Configuración de GitHub</h2>
+    <p class="hint">Estos datos quedan guardados únicamente en este navegador (no se suben a ningún lado). Con esto la app lee y guarda las pericias directamente en tu repositorio privado.</p>
+    <div class="field"><label>Usuario u organización</label><input class="mono" id="cfg-owner" placeholder="ej: claudios"></div>
+    <div class="field"><label>Repositorio</label><input class="mono" id="cfg-repo" placeholder="ej: pericias-contables"></div>
+    <div class="field"><label>Rama</label><input class="mono" id="cfg-branch" placeholder="main" value="main"></div>
+    <div class="field"><label>Token de acceso personal (fine-grained)</label><input class="mono" id="cfg-token" type="password" placeholder="github_pat_…"></div>
+    <p class="hint">El token necesita permiso <b>Contents: Read and write</b> solo sobre este repositorio. Generalo en GitHub → Settings → Developer settings → Fine-grained tokens.</p>
+    <div class="modal-actions">
+      <div class="left"><button class="btn btn-alert" id="btn-borrar-config">Borrar configuración</button></div>
+      <div class="right"><button class="btn btn-ghost" id="btn-cancelar-config">Cancelar</button><button class="btn btn-brass" id="btn-guardar-config">Guardar y conectar</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA_PATH = 'data/pericias.json';
+const CONFIG_KEY = 'gh-pericias-config';
+let pericias = [];
+let currentSha = null;
+let expandedId = null;
+let config = null;
+let saving = false;
+
+const ESTADO_COLOR = {
+  'Designada / aceptación pendiente': 'var(--slate)',
+  'Cargo aceptado': 'var(--brass)',
+  'En elaboración': 'var(--teal)',
+  'Presentada': 'var(--ok)',
+  'Observada / impugnada': 'var(--alert)',
+  'Contestación de impugnaciones': 'var(--warn)',
+  'Homologada / finalizada': 'var(--folder-dark)',
+};
+const ESTADO_ABBR = {
+  'Designada / aceptación pendiente': 'Designada',
+  'Cargo aceptado': 'Cargo aceptado',
+  'En elaboración': 'En elaboración',
+  'Presentada': 'Presentada',
+  'Observada / impugnada': 'Observada',
+  'Contestación de impugnaciones': 'Contest. impugnaciones',
+  'Homologada / finalizada': 'Finalizada',
+};
+
+function uid(){ return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+
+/* ---------- Unicode-safe base64 helpers ---------- */
+function utf8ToB64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64ToUtf8(b64){
+  const bin = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/* ---------- Config (localStorage, this browser only) ---------- */
+function loadConfig(){
+  try{
+    const raw = localStorage.getItem(CONFIG_KEY);
+    config = raw ? JSON.parse(raw) : null;
+  }catch(e){ config = null; }
+}
+function saveConfig(c){
+  config = c;
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(c));
+}
+function clearConfig(){
+  config = null;
+  localStorage.removeItem(CONFIG_KEY);
+}
+
+function setConn(state, text){
+  const bar = document.getElementById('conn-bar');
+  bar.className = 'conn-bar conn-' + state;
+  document.getElementById('conn-text').textContent = text;
+}
+
+/* ---------- GitHub API ---------- */
+function ghHeaders(){
+  return {
+    'Authorization': 'Bearer ' + config.token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+}
+function ghUrl(){
+  return `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${DATA_PATH}`;
+}
+
+async function ghLoad(){
+  const res = await fetch(`${ghUrl()}?ref=${encodeURIComponent(config.branch)}&t=${Date.now()}`, { headers: ghHeaders() });
+  if(res.status === 404){
+    currentSha = null;
+    return [];
+  }
+  if(res.status === 401 || res.status === 403){
+    throw new Error('AUTH');
+  }
+  if(!res.ok) throw new Error('HTTP_' + res.status);
+  const json = await res.json();
+  currentSha = json.sha;
+  return JSON.parse(b64ToUtf8(json.content));
+}
+
+async function ghSave(data, message){
+  const body = {
+    message,
+    content: utf8ToB64(JSON.stringify(data, null, 2)),
+    branch: config.branch
+  };
+  if(currentSha) body.sha = currentSha;
+  const res = await fetch(ghUrl(), { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(res.status === 401 || res.status === 403) throw new Error('AUTH');
+  if(!res.ok) throw new Error('HTTP_' + res.status);
+  const json = await res.json();
+  currentSha = json.content.sha;
+}
+
+async function connectAndLoad(){
+  if(!config || !config.owner || !config.repo || !config.token){
+    setConn('warn', 'Sin configurar — abrí "Configuración" para conectar tu repositorio de GitHub');
+    pericias = [];
+    renderAll();
+    return;
+  }
+  setConn('warn', 'Conectando con ' + config.owner + '/' + config.repo + '…');
+  try{
+    pericias = await ghLoad();
+    setConn('ok', 'Conectado a ' + config.owner + '/' + config.repo + ' (rama ' + config.branch + ')');
+  }catch(e){
+    if(e.message === 'AUTH'){
+      setConn('error', 'Token inválido o sin permisos sobre ese repositorio. Revisá la configuración.');
+    } else {
+      setConn('error', 'No se pudo conectar (' + e.message + '). Revisá el nombre del repositorio y tu conexión.');
+    }
+    pericias = [];
+  }
+  renderAll();
+}
+
+async function persist(message){
+  saving = true;
+  setConn('warn', 'Guardando en GitHub…');
+  try{
+    await ghSave(pericias, message);
+    setConn('ok', 'Conectado a ' + config.owner + '/' + config.repo + ' · guardado ✓');
+  }catch(e){
+    setConn('error', e.message === 'AUTH' ? 'Token inválido o expirado, no se pudo guardar.' : 'Error al guardar (' + e.message + ').');
+    alert('No se pudo guardar en GitHub. Revisá la configuración y volvé a intentar.');
+  }
+  saving = false;
+}
+
+/* ---------- Utilidades de fecha ---------- */
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr + 'T00:00:00');
+  return Math.round((target - today) / 86400000);
+}
+function fmtDate(dateStr){
+  if(!dateStr) return '—';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function venciClass(dateStr, estado){
+  if(estado === 'Homologada / finalizada' || !dateStr) return 'venc-ok';
+  const d = daysUntil(dateStr);
+  if(d < 0) return 'venc-alert';
+  if(d <= 7) return 'venc-warn';
+  return 'venc-ok';
+}
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+/* ---------- Render ---------- */
+function populateFilters(){
+  const contadorSel = document.getElementById('filter-contador');
+  const estadoSel = document.getElementById('filter-estado');
+  const datalist = document.getElementById('contadores-list');
+  const contadores = [...new Set(pericias.map(p => p.contador).filter(Boolean))].sort();
+  const currentContador = contadorSel.value;
+  contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + contadores.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  contadorSel.value = currentContador;
+  datalist.innerHTML = contadores.map(c => `<option value="${escapeHtml(c)}">`).join('');
+  if(estadoSel.options.length <= 1){
+    estadoSel.innerHTML = '<option value="">Todos los estados</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
+  }
+}
+
+function renderStats(){
+  const total = pericias.length;
+  const vencidas = pericias.filter(p => p.estado !== 'Homologada / finalizada' && p.vencimiento && daysUntil(p.vencimiento) < 0).length;
+  const proximas = pericias.filter(p => p.estado !== 'Homologada / finalizada' && p.vencimiento && daysUntil(p.vencimiento) >= 0 && daysUntil(p.vencimiento) <= 7).length;
+  const contadores = new Set(pericias.map(p => p.contador).filter(Boolean)).size;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">Pericias activas</div></div>
+    <div class="stat-card alert-stat"><div class="stat-num mono">${vencidas}</div><div class="stat-label">Vencidas</div></div>
+    <div class="stat-card warn-stat"><div class="stat-num mono">${proximas}</div><div class="stat-label">Vencen en 7 días</div></div>
+    <div class="stat-card"><div class="stat-num mono">${contadores}</div><div class="stat-label">Contadores a cargo</div></div>
+  `;
+}
+
+function getFiltered(){
+  const search = document.getElementById('search').value.trim().toLowerCase();
+  const contador = document.getElementById('filter-contador').value;
+  const estado = document.getElementById('filter-estado').value;
+  const sortBy = document.getElementById('sort-by').value;
+  let list = pericias.filter(p => {
+    if(contador && p.contador !== contador) return false;
+    if(estado && p.estado !== estado) return false;
+    if(search){
+      const blob = `${p.expediente} ${p.caratula} ${p.contador} ${p.juzgado}`.toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  if(sortBy === 'vencimiento'){
+    list.sort((a,b) => {
+      if(!a.vencimiento && !b.vencimiento) return 0;
+      if(!a.vencimiento) return 1;
+      if(!b.vencimiento) return -1;
+      return new Date(a.vencimiento) - new Date(b.vencimiento);
+    });
+  } else if(sortBy === 'reciente'){
+    list.sort((a,b) => {
+      const aLast = a.novedades.length ? a.novedades[a.novedades.length-1].fecha : a.fecha_designacion || '';
+      const bLast = b.novedades.length ? b.novedades[b.novedades.length-1].fecha : b.fecha_designacion || '';
+      return new Date(bLast || 0) - new Date(aLast || 0);
+    });
+  } else {
+    list.sort((a,b) => (a.expediente||'').localeCompare(b.expediente||'', undefined, {numeric:true}));
+  }
+  return list;
+}
+
+function renderList(){
+  const list = getFiltered();
+  const container = document.getElementById('list');
+  if(!config){
+    container.innerHTML = `<div class="empty">Configurá tu repositorio de GitHub (botón "⚙ Configuración") para empezar a cargar pericias.</div>`;
+    return;
+  }
+  if(pericias.length === 0){
+    container.innerHTML = `<div class="empty">Todavía no cargaste ninguna pericia.<br>Usá "+ Nueva pericia" para empezar el registro.</div>`;
+    return;
+  }
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty">No hay pericias que coincidan con la búsqueda o los filtros.</div>`;
+    return;
+  }
+  container.innerHTML = list.map(p => {
+    const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
+    const vClass = venciClass(p.vencimiento, p.estado);
+    const isOpen = expandedId === p.id;
+    const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    const isFinal = p.estado === 'Homologada / finalizada';
+    return `
+      <article class="ficha" data-tab-label="${escapeHtml(ESTADO_ABBR[p.estado] || p.estado)}" style="--tab-color:${color}">
+        ${isFinal ? '<div class="stamp">HOMOLOGADA</div>' : ''}
+        <div class="ficha-header" onclick="toggleExpand('${p.id}')">
+          <div class="expediente">EXPTE.<br>${escapeHtml(p.expediente || 's/n°')}</div>
+          <div class="caratula">${escapeHtml(p.caratula || '(sin carátula cargada)')}<span class="juzgado-mini">${escapeHtml(p.juzgado || '')}</span></div>
+          <div class="badge-contador">${escapeHtml(p.contador || '—')}</div>
+          <div class="estado-pill" style="background:${color}">${escapeHtml(p.estado)}</div>
+          <div class="vencimiento ${vClass}"><span class="lbl">Vencimiento</span>${fmtDate(p.vencimiento)}</div>
+        </div>
+        <div class="ficha-body ${isOpen ? 'open' : ''}" id="body-${p.id}">
+          <div class="ficha-actions"><button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos</button></div>
+          <div class="timeline-title">Novedades</div>
+          ${novedadesOrdenadas.length === 0
+            ? '<div class="no-novedades">Sin novedades registradas todavía.</div>'
+            : `<ul class="timeline">${novedadesOrdenadas.map(n => `<li><div class="nov-fecha">${fmtDate(n.fecha)}</div><div class="nov-texto">${escapeHtml(n.texto)}</div></li>`).join('')}</ul>`
+          }
+          <div class="add-novedad">
+            <input type="date" id="nov-fecha-${p.id}" value="${new Date().toISOString().slice(0,10)}">
+            <textarea id="nov-texto-${p.id}" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc."></textarea>
+            <button class="btn btn-brass btn-small" onclick="addNovedad('${p.id}')">Agregar</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderAll(){ populateFilters(); renderStats(); renderList(); }
+
+function toggleExpand(id){ expandedId = expandedId === id ? null : id; renderList(); }
+
+async function addNovedad(id){
+  const fechaInput = document.getElementById(`nov-fecha-${id}`);
+  const textoInput = document.getElementById(`nov-texto-${id}`);
+  const texto = textoInput.value.trim();
+  if(!texto){ textoInput.focus(); return; }
+  const p = pericias.find(x => x.id === id);
+  p.novedades.push({ id: uid(), fecha: fechaInput.value || new Date().toISOString().slice(0,10), texto });
+  renderStats(); renderList();
+  await persist(`Novedad en expte. ${p.expediente || p.id}`);
+}
+
+/* ---------- Modal pericia ---------- */
+function openForm(id){
+  const overlay = document.getElementById('modal-overlay');
+  const title = document.getElementById('modal-title');
+  const delBtn = document.getElementById('btn-eliminar');
+  if(id){
+    const p = pericias.find(x => x.id === id);
+    title.textContent = 'Editar pericia';
+    document.getElementById('f-id').value = p.id;
+    document.getElementById('f-expediente').value = p.expediente || '';
+    document.getElementById('f-contador').value = p.contador || '';
+    document.getElementById('f-caratula').value = p.caratula || '';
+    document.getElementById('f-juzgado').value = p.juzgado || '';
+    document.getElementById('f-estado').value = p.estado;
+    document.getElementById('f-vencimiento').value = p.vencimiento || '';
+    delBtn.style.display = 'inline-block';
+  } else {
+    title.textContent = 'Nueva pericia';
+    document.getElementById('f-id').value = '';
+    document.getElementById('f-expediente').value = '';
+    document.getElementById('f-contador').value = '';
+    document.getElementById('f-caratula').value = '';
+    document.getElementById('f-juzgado').value = '';
+    document.getElementById('f-estado').value = 'Designada / aceptación pendiente';
+    document.getElementById('f-vencimiento').value = '';
+    delBtn.style.display = 'none';
+  }
+  populateFilters();
+  overlay.classList.remove('hidden');
+}
+function closeForm(){ document.getElementById('modal-overlay').classList.add('hidden'); }
+
+async function saveForm(){
+  const id = document.getElementById('f-id').value;
+  const expediente = document.getElementById('f-expediente').value.trim();
+  const contador = document.getElementById('f-contador').value.trim();
+  const caratula = document.getElementById('f-caratula').value.trim();
+  const juzgado = document.getElementById('f-juzgado').value.trim();
+  const estado = document.getElementById('f-estado').value;
+  const vencimiento = document.getElementById('f-vencimiento').value;
+  if(!expediente && !caratula){ alert('Cargá al menos el número de expediente o la carátula.'); return; }
+
+  let message;
+  if(id){
+    const p = pericias.find(x => x.id === id);
+    Object.assign(p, { expediente, contador, caratula, juzgado, estado, vencimiento });
+    message = `Actualiza pericia expte. ${expediente || id}`;
+  } else {
+    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [] });
+    message = `Nueva pericia expte. ${expediente || 's/n°'}`;
+  }
+  renderAll();
+  closeForm();
+  await persist(message);
+}
+
+async function deletePericia(){
+  const id = document.getElementById('f-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar esta pericia y todas sus novedades? Esta acción no se puede deshacer.')) return;
+  const p = pericias.find(x => x.id === id);
+  pericias = pericias.filter(x => x.id !== id);
+  renderAll();
+  closeForm();
+  await persist(`Elimina pericia expte. ${p ? p.expediente || id : id}`);
+}
+
+/* ---------- Modal configuración ---------- */
+function openConfig(){
+  const c = config || {owner:'',repo:'',branch:'main',token:''};
+  document.getElementById('cfg-owner').value = c.owner || '';
+  document.getElementById('cfg-repo').value = c.repo || '';
+  document.getElementById('cfg-branch').value = c.branch || 'main';
+  document.getElementById('cfg-token').value = c.token || '';
+  document.getElementById('config-overlay').classList.remove('hidden');
+}
+function closeConfig(){ document.getElementById('config-overlay').classList.add('hidden'); }
+
+async function saveConfigForm(){
+  const owner = document.getElementById('cfg-owner').value.trim();
+  const repo = document.getElementById('cfg-repo').value.trim();
+  const branch = document.getElementById('cfg-branch').value.trim() || 'main';
+  const token = document.getElementById('cfg-token').value.trim();
+  if(!owner || !repo || !token){ alert('Completá usuario, repositorio y token.'); return; }
+  saveConfig({owner, repo, branch, token});
+  closeConfig();
+  await connectAndLoad();
+}
+
+document.getElementById('btn-nueva').addEventListener('click', () => openForm(null));
+document.getElementById('btn-cancelar').addEventListener('click', closeForm);
+document.getElementById('btn-guardar').addEventListener('click', saveForm);
+document.getElementById('btn-eliminar').addEventListener('click', deletePericia);
+document.getElementById('search').addEventListener('input', renderList);
+document.getElementById('filter-contador').addEventListener('change', renderList);
+document.getElementById('filter-estado').addEventListener('change', renderList);
+document.getElementById('sort-by').addEventListener('change', renderList);
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeForm(); });
+document.getElementById('config-overlay').addEventListener('click', (e) => { if(e.target.id === 'config-overlay') closeConfig(); });
+document.getElementById('btn-config').addEventListener('click', openConfig);
+document.getElementById('btn-cancelar-config').addEventListener('click', closeConfig);
+document.getElementById('btn-guardar-config').addEventListener('click', saveConfigForm);
+document.getElementById('btn-borrar-config').addEventListener('click', () => {
+  if(confirm('¿Borrar la configuración guardada en este navegador?')){
+    clearConfig();
+    closeConfig();
+    connectAndLoad();
+  }
+});
+
+(async function init(){
+  loadConfig();
+  await connectAndLoad();
+})();
+</script>
+</body>
+</html>
