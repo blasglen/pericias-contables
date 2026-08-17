@@ -101,6 +101,23 @@
   .login-box h2{font-size:26px;}
   .login-box .field{text-align:left;}
   .login-conn{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate);margin-top:14px;min-height:16px;}
+
+  /* Vista de detalle */
+  .ficha-madre{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:8px;}
+  .ficha-madre::before{content:'DESIGNACIÓN · EXPEDIENTE';position:absolute;top:-15px;left:18px;background:var(--folder-dark);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
+  .ficha-madre h2{margin:0 0 4px;font-size:20px;color:var(--folder-dark);}
+  .ficha-madre .juzgado-line{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--slate);margin-bottom:14px;}
+  .ficha-madre-grid{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:14px;}
+  .ficha-madre-grid > div{font-family:'IBM Plex Mono',monospace;font-size:12px;}
+  .ficha-madre-grid .lbl{display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;}
+  .ficha-madre .resumen{font-size:14.5px;line-height:1.55;border-top:1px solid var(--line);padding-top:14px;margin-top:4px;}
+  .ficha-madre-actions{display:flex;gap:8px;margin-top:16px;}
+
+  .nov-card{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:18px 20px;margin-bottom:22px;}
+  .nov-card::before{content:attr(data-tab-label);position:absolute;top:-14px;left:18px;background:var(--brass);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
+  .nov-card .nov-texto{font-size:15px;line-height:1.5;}
+  .nov-card .nov-del{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--slate);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;}
+  .nov-card .nov-del:hover{color:var(--alert);}
   .field{margin-bottom:14px;}
   .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin-bottom:5px;}
   .field input,.field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);}
@@ -134,20 +151,36 @@
 
   <div id="conn-bar" class="conn-bar conn-warn"><span class="dot"></span><span id="conn-text">Sin configurar todavía</span></div>
 
-  <div class="stats" id="stats"></div>
+  <!-- VISTA: listado principal -->
+  <div id="view-list">
+    <div class="stats" id="stats"></div>
 
-  <div class="controls">
-    <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
-    <select id="filter-contador"><option value="">Todos los contadores</option></select>
-    <select id="filter-estado"><option value="">Todos los estados</option></select>
-    <select id="sort-by">
-      <option value="vencimiento">Ordenar: vencimiento más próximo</option>
-      <option value="reciente">Ordenar: novedad más reciente</option>
-      <option value="expediente">Ordenar: n° de expediente</option>
-    </select>
+    <div class="controls">
+      <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
+      <select id="filter-contador"><option value="">Todos los contadores</option></select>
+      <select id="filter-estado"><option value="">Todos los estados</option></select>
+      <select id="sort-by">
+        <option value="reciente" selected>Ordenar: movimiento más reciente</option>
+        <option value="vencimiento">Ordenar: vencimiento más próximo</option>
+        <option value="expediente">Ordenar: n° de expediente</option>
+      </select>
+    </div>
+
+    <div id="list"></div>
   </div>
 
-  <div id="list"></div>
+  <!-- VISTA: detalle de un juicio -->
+  <div id="view-detail" class="hidden">
+    <button class="btn btn-ghost btn-small" id="btn-volver" style="margin-bottom:18px;">← Volver al listado</button>
+    <div id="detail-header"></div>
+    <div class="timeline-title" style="margin-top:24px;">Novedades</div>
+    <div class="add-novedad" style="margin-bottom:22px;">
+      <input type="date" id="detail-nov-fecha" value="">
+      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc."></textarea>
+      <button class="btn btn-brass btn-small" id="btn-detail-agregar">Agregar</button>
+    </div>
+    <div id="detail-novedades"></div>
+  </div>
 </div>
 
 <!-- MODAL: nueva/editar pericia -->
@@ -161,6 +194,10 @@
     </div>
     <div class="field"><label>Carátula / partes</label><input id="f-caratula" placeholder="Pérez, Juan c/ López, Ana s/ Daños y Perjuicios"></div>
     <div class="field"><label>Juzgado / fuero</label><input id="f-juzgado" placeholder="Juzgado Civil y Comercial N° 4"></div>
+    <div class="field">
+      <label>Resumen del expediente (opcional)</label>
+      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — por ejemplo, el que te genere Claude a partir del expediente completo" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
+    </div>
     <div class="field-row">
       <div class="field">
         <label>Estado actual</label>
@@ -205,7 +242,6 @@ const CONFIG_FILE = 'config.enc.json';
 const SESSION_KEY = 'gh-pericias-session';
 let pericias = [];
 let currentSha = null;
-let expandedId = null;
 let config = null; // { owner, repo, branch, token } — solo en memoria/sessionStorage, nunca en disco
 let saving = false;
 
@@ -500,15 +536,18 @@ function getFiltered(){
       return new Date(a.vencimiento) - new Date(b.vencimiento);
     });
   } else if(sortBy === 'reciente'){
-    list.sort((a,b) => {
-      const aLast = a.novedades.length ? a.novedades[a.novedades.length-1].fecha : a.fecha_designacion || '';
-      const bLast = b.novedades.length ? b.novedades[b.novedades.length-1].fecha : b.fecha_designacion || '';
-      return new Date(bLast || 0) - new Date(aLast || 0);
-    });
+    list.sort((a,b) => new Date(ultimoMovimiento(b) || 0) - new Date(ultimoMovimiento(a) || 0));
   } else {
     list.sort((a,b) => (a.expediente||'').localeCompare(b.expediente||'', undefined, {numeric:true}));
   }
   return list;
+}
+
+function ultimoMovimiento(p){
+  if(p.novedades.length){
+    return p.novedades.reduce((max, n) => new Date(n.fecha) > new Date(max) ? n.fecha : max, p.novedades[0].fecha);
+  }
+  return p.fecha_designacion || '';
 }
 
 function renderList(){
@@ -529,50 +568,100 @@ function renderList(){
   container.innerHTML = list.map(p => {
     const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
     const vClass = venciClass(p.vencimiento, p.estado);
-    const isOpen = expandedId === p.id;
-    const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
     const isFinal = p.estado === 'Homologada / finalizada';
     return `
       <article class="ficha" data-tab-label="${escapeHtml(ESTADO_ABBR[p.estado] || p.estado)}" style="--tab-color:${color}">
         ${isFinal ? '<div class="stamp">HOMOLOGADA</div>' : ''}
-        <div class="ficha-header" onclick="toggleExpand('${p.id}')">
+        <div class="ficha-header" onclick="location.hash = 'p/' + '${p.id}'">
           <div class="expediente">EXPTE.<br>${escapeHtml(p.expediente || 's/n°')}</div>
           <div class="caratula">${escapeHtml(p.caratula || '(sin carátula cargada)')}<span class="juzgado-mini">${escapeHtml(p.juzgado || '')}</span></div>
           <div class="badge-contador">${escapeHtml(p.contador || '—')}</div>
           <div class="estado-pill" style="background:${color}">${escapeHtml(p.estado)}</div>
           <div class="vencimiento ${vClass}"><span class="lbl">Vencimiento</span>${fmtDate(p.vencimiento)}</div>
         </div>
-        <div class="ficha-body ${isOpen ? 'open' : ''}" id="body-${p.id}">
-          <div class="ficha-actions"><button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos</button></div>
-          <div class="timeline-title">Novedades</div>
-          ${novedadesOrdenadas.length === 0
-            ? '<div class="no-novedades">Sin novedades registradas todavía.</div>'
-            : `<ul class="timeline">${novedadesOrdenadas.map(n => `<li><div class="nov-fecha">${fmtDate(n.fecha)}</div><div class="nov-texto">${escapeHtml(n.texto)}</div></li>`).join('')}</ul>`
-          }
-          <div class="add-novedad">
-            <input type="date" id="nov-fecha-${p.id}" value="${new Date().toISOString().slice(0,10)}">
-            <textarea id="nov-texto-${p.id}" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc."></textarea>
-            <button class="btn btn-brass btn-small" onclick="addNovedad('${p.id}')">Agregar</button>
-          </div>
-        </div>
       </article>
     `;
   }).join('');
 }
 
-function renderAll(){ populateFilters(); renderStats(); renderList(); }
+function renderAll(){ populateFilters(); renderStats(); renderRoute(); }
 
-function toggleExpand(id){ expandedId = expandedId === id ? null : id; renderList(); }
+/* ---------- Ruteo (hash: '' = listado, 'p/ID' = detalle de un juicio) ---------- */
+function currentRoute(){
+  const hash = location.hash.replace(/^#/, '');
+  const m = hash.match(/^p\/(.+)$/);
+  return m ? { view:'detail', id: m[1] } : { view:'list' };
+}
 
-async function addNovedad(id){
-  const fechaInput = document.getElementById(`nov-fecha-${id}`);
-  const textoInput = document.getElementById(`nov-texto-${id}`);
+function renderRoute(){
+  const route = currentRoute();
+  if(route.view === 'detail'){
+    const p = pericias.find(x => x.id === route.id);
+    if(!p){ location.hash = ''; return; }
+    document.getElementById('view-list').classList.add('hidden');
+    document.getElementById('view-detail').classList.remove('hidden');
+    renderDetail(p);
+  } else {
+    document.getElementById('view-detail').classList.add('hidden');
+    document.getElementById('view-list').classList.remove('hidden');
+    renderList();
+  }
+}
+
+function renderDetail(p){
+  const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
+  const vClass = venciClass(p.vencimiento, p.estado);
+  document.getElementById('detail-header').innerHTML = `
+    <div class="ficha-madre">
+      <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
+      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')}</div>
+      <div class="ficha-madre-grid">
+        <div><span class="lbl">Perito contador designado</span>${escapeHtml(p.contador || '—')}</div>
+        <div><span class="lbl">Fecha de designación</span>${fmtDate(p.fecha_designacion)}</div>
+        <div><span class="lbl">Estado actual</span><span class="estado-pill" style="background:${color};display:inline-block;">${escapeHtml(p.estado)}</span></div>
+        <div><span class="lbl">Próximo vencimiento</span><span class="${vClass}">${fmtDate(p.vencimiento)}</span></div>
+      </div>
+      ${p.resumen ? `<div class="resumen">${escapeHtml(p.resumen).replace(/\n/g,'<br>')}</div>` : ''}
+      <div class="ficha-madre-actions">
+        <button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos del expediente</button>
+        <button class="btn btn-alert btn-small" onclick="deletePericiaById('${p.id}')">Eliminar pericia</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('detail-nov-fecha').value = new Date().toISOString().slice(0,10);
+
+  const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const container = document.getElementById('detail-novedades');
+  container.innerHTML = novedadesOrdenadas.length === 0
+    ? '<div class="no-novedades">Sin novedades registradas todavía. Agregá la primera abajo.</div>'
+    : novedadesOrdenadas.map(n => `
+        <article class="nov-card" data-tab-label="${fmtDate(n.fecha)}">
+          <button class="nov-del" onclick="deleteNovedad('${p.id}','${n.id}')">Eliminar</button>
+          <div class="nov-texto">${escapeHtml(n.texto)}</div>
+        </article>
+      `).join('');
+}
+
+async function addNovedadDetail(){
+  const route = currentRoute();
+  if(route.view !== 'detail') return;
+  const fechaInput = document.getElementById('detail-nov-fecha');
+  const textoInput = document.getElementById('detail-nov-texto');
   const texto = textoInput.value.trim();
   if(!texto){ textoInput.focus(); return; }
-  const p = pericias.find(x => x.id === id);
+  const p = pericias.find(x => x.id === route.id);
   p.novedades.push({ id: uid(), fecha: fechaInput.value || new Date().toISOString().slice(0,10), texto });
-  renderStats(); renderList();
+  textoInput.value = '';
+  renderStats(); renderRoute();
   await persist(`Novedad en expte. ${p.expediente || p.id}`);
+}
+
+async function deleteNovedad(periciaId, novedadId){
+  if(!confirm('¿Eliminar esta novedad?')) return;
+  const p = pericias.find(x => x.id === periciaId);
+  p.novedades = p.novedades.filter(n => n.id !== novedadId);
+  renderStats(); renderRoute();
+  await persist(`Elimina novedad en expte. ${p.expediente || p.id}`);
 }
 
 /* ---------- Modal pericia ---------- */
@@ -588,6 +677,7 @@ function openForm(id){
     document.getElementById('f-contador').value = p.contador || '';
     document.getElementById('f-caratula').value = p.caratula || '';
     document.getElementById('f-juzgado').value = p.juzgado || '';
+    document.getElementById('f-resumen').value = p.resumen || '';
     document.getElementById('f-estado').value = p.estado;
     document.getElementById('f-vencimiento').value = p.vencimiento || '';
     delBtn.style.display = 'inline-block';
@@ -598,6 +688,7 @@ function openForm(id){
     document.getElementById('f-contador').value = '';
     document.getElementById('f-caratula').value = '';
     document.getElementById('f-juzgado').value = '';
+    document.getElementById('f-resumen').value = '';
     document.getElementById('f-estado').value = 'Designada / aceptación pendiente';
     document.getElementById('f-vencimiento').value = '';
     delBtn.style.display = 'none';
@@ -613,6 +704,7 @@ async function saveForm(){
   const contador = document.getElementById('f-contador').value.trim();
   const caratula = document.getElementById('f-caratula').value.trim();
   const juzgado = document.getElementById('f-juzgado').value.trim();
+  const resumen = document.getElementById('f-resumen').value.trim();
   const estado = document.getElementById('f-estado').value;
   const vencimiento = document.getElementById('f-vencimiento').value;
   if(!expediente && !caratula){ alert('Cargá al menos el número de expediente o la carátula.'); return; }
@@ -620,10 +712,10 @@ async function saveForm(){
   let message;
   if(id){
     const p = pericias.find(x => x.id === id);
-    Object.assign(p, { expediente, contador, caratula, juzgado, estado, vencimiento });
+    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, estado, vencimiento });
     message = `Actualiza pericia expte. ${expediente || id}`;
   } else {
-    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [] });
+    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [] });
     message = `Nueva pericia expte. ${expediente || 's/n°'}`;
   }
   renderAll();
@@ -631,15 +723,18 @@ async function saveForm(){
   await persist(message);
 }
 
-async function deletePericia(){
-  const id = document.getElementById('f-id').value;
+async function deletePericiaById(id){
   if(!id) return;
   if(!confirm('¿Eliminar esta pericia y todas sus novedades? Esta acción no se puede deshacer.')) return;
   const p = pericias.find(x => x.id === id);
   pericias = pericias.filter(x => x.id !== id);
-  renderAll();
   closeForm();
+  if(currentRoute().id === id) location.hash = '';
+  renderAll();
   await persist(`Elimina pericia expte. ${p ? p.expediente || id : id}`);
+}
+async function deletePericia(){
+  await deletePericiaById(document.getElementById('f-id').value);
 }
 
 /* ---------- Pantalla de PIN ---------- */
@@ -693,6 +788,9 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e
 document.getElementById('btn-config').addEventListener('click', lockApp);
 document.getElementById('btn-entrar-pin').addEventListener('click', submitPin);
 document.getElementById('cfg-pin').addEventListener('keydown', (e) => { if(e.key === 'Enter') submitPin(); });
+document.getElementById('btn-volver').addEventListener('click', () => { location.hash = ''; });
+document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
+window.addEventListener('hashchange', renderRoute);
 
 (async function init(){
   loadSessionConfig();
