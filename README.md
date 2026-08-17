@@ -68,3 +68,47 @@ como historial completo de cambios.
   desde Settings → Developer settings → Fine-grained tokens.
 - Cada persona que use la app (por ejemplo, tu mamá desde su propia compu) debe
   cargar su propio token — no conviene compartir el mismo token por chat o mail.
+
+## 6. (Opcional) Completar pericias con IA
+
+Este paso arma un "Worker" (una función que corre en la nube de Cloudflare, gratis)
+que llama a la API de Claude para leer un expediente y completar los campos del
+formulario automáticamente. Requiere dos cuentas nuevas, separadas de tu GitHub:
+
+- Una cuenta gratuita en **Cloudflare** (para alojar el Worker).
+- Una cuenta en **console.anthropic.com** (la API de Claude para desarrolladores,
+  distinta de tu cuenta de claude.ai) con un método de pago cargado — el uso es
+  de centavos por documento analizado, pero la cuenta necesita facturación activa.
+
+### Pasos
+
+1. Andá a https://dash.cloudflare.com/sign-up y creá una cuenta gratuita.
+2. En el panel, **Workers & Pages → Create → Create Worker**. Ponele un nombre,
+   por ejemplo `pericias-resumen`.
+3. Click en **Edit code**, borrá el contenido de ejemplo, y pegá el contenido de
+   `worker/index.js` (está en esta misma carpeta). **Deploy**.
+4. Andá a **Settings → Variables and Secrets** del Worker y agregá dos variables,
+   marcadas como **Encrypt**:
+   - `ANTHROPIC_API_KEY`: tu clave de https://console.anthropic.com/settings/keys
+     (creá una cuenta ahí si no tenés, y cargá un método de pago en Billing).
+   - `APP_SHARED_KEY`: inventate una clave larga random (por ejemplo, generada en
+     https://1password.com/password-generator/). Esta clave es la que evita que
+     cualquiera use tu Worker — solo la app con el PIN correcto la va a tener.
+5. Copiá la URL del Worker (arriba del editor, algo como
+   `https://pericias-resumen.tuusuario.workers.dev`).
+6. Abrí `setup-config.html` de nuevo, completá también los campos "URL del Worker"
+   y "Clave de acceso al Worker" con los datos de los pasos 5 y 4, junto con el
+   resto de los datos de siempre (mismo PIN o uno nuevo). Generá el `config.enc.json`
+   de nuevo y subilo al repo, reemplazando el anterior.
+
+Una vez hecho esto, en el formulario de "Nueva pericia" vas a ver un recuadro para
+pegar texto o subir una imagen/PDF del expediente, con un botón para que la IA
+complete los campos automáticamente. Siempre conviene revisar lo que completa antes
+de guardar — puede equivocarse, como cualquier lectura humana apurada.
+
+### Sobre el costo
+
+Cada análisis usa el modelo Claude Sonnet 5 y cuesta fracciones de centavo de
+dólar por expediente (según tamaño). Para dormir tranquilo, en
+console.anthropic.com → Settings → Billing podés poner un límite de gasto mensual.
+

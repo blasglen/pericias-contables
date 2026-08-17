@@ -118,6 +118,8 @@
   .nov-card .nov-texto{font-size:15px;line-height:1.5;}
   .nov-card .nov-del{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--slate);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;}
   .nov-card .nov-del:hover{color:var(--alert);}
+  .ai-box{background:var(--paper-2);border:1px dashed var(--brass);border-radius:4px;padding:14px 16px;margin-bottom:20px;}
+  .ai-box label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin-bottom:5px;}
   .field input,.field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);}
@@ -188,6 +190,17 @@
   <div class="modal-box">
     <h2 id="modal-title">Nueva pericia</h2>
     <input type="hidden" id="f-id">
+
+    <div class="ai-box" id="ai-box">
+      <label>Completar automáticamente con IA (opcional)</label>
+      <textarea id="ai-texto" rows="3" placeholder="Pegá acá el texto del oficio, cédula o expediente…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="ai-archivo" accept="image/*,application/pdf" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">
+        <button class="btn btn-ghost btn-small" id="btn-ai-analizar" type="button">Analizar y completar campos</button>
+      </div>
+      <div id="ai-status" class="hint" style="margin:6px 0 0;"></div>
+    </div>
+
     <div class="field-row">
       <div class="field"><label>N° de expediente</label><input id="f-expediente" placeholder="12345/2026"></div>
       <div class="field"><label>Contador a cargo</label><input id="f-contador" list="contadores-list" placeholder="Nombre del contador"><datalist id="contadores-list"></datalist></div>
@@ -196,7 +209,7 @@
     <div class="field"><label>Juzgado / fuero</label><input id="f-juzgado" placeholder="Juzgado Civil y Comercial N° 4"></div>
     <div class="field">
       <label>Resumen del expediente (opcional)</label>
-      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — por ejemplo, el que te genere Claude a partir del expediente completo" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
+      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — o generalo con el botón de arriba" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
     </div>
     <div class="field-row">
       <div class="field">
@@ -665,6 +678,83 @@ async function deleteNovedad(periciaId, novedadId){
 }
 
 /* ---------- Modal pericia ---------- */
+/* ---------- Completar con IA (vía Cloudflare Worker) ---------- */
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result; // data:<mime>;base64,<data>
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function analizarConIA(){
+  const statusDiv = document.getElementById('ai-status');
+  const btn = document.getElementById('btn-ai-analizar');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA. Podés cargar los datos a mano mientras tanto.';
+    return;
+  }
+
+  const texto = document.getElementById('ai-texto').value.trim();
+  const fileInput = document.getElementById('ai-archivo');
+  const file = fileInput.files[0];
+
+  if(!texto && !file){
+    statusDiv.textContent = 'Pegá un texto o elegí un archivo primero.';
+    return;
+  }
+
+  let body;
+  try{
+    if(file){
+      const base64 = await fileToBase64(file);
+      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf' };
+    } else {
+      body = { mode: 'text', text: texto };
+    }
+  }catch(e){
+    statusDiv.textContent = 'No se pudo leer el archivo.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.textContent = 'Analizando con IA…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo analizar (' + (data.error || res.status) + '). Revisá el Worker o cargá a mano.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    if(r.expediente) document.getElementById('f-expediente').value = r.expediente;
+    if(r.contador) document.getElementById('f-contador').value = r.contador;
+    if(r.caratula) document.getElementById('f-caratula').value = r.caratula;
+    if(r.juzgado) document.getElementById('f-juzgado').value = r.juzgado;
+    if(r.estado) document.getElementById('f-estado').value = r.estado;
+    if(r.resumen) document.getElementById('f-resumen').value = r.resumen;
+    statusDiv.style.color = 'var(--ok)';
+    statusDiv.textContent = '✓ Listo — revisá los campos antes de guardar, la IA puede equivocarse.';
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+  btn.disabled = false;
+}
+
 function openForm(id){
   const overlay = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-title');
@@ -694,6 +784,10 @@ function openForm(id){
     delBtn.style.display = 'none';
   }
   populateFilters();
+  document.getElementById('ai-texto').value = '';
+  document.getElementById('ai-archivo').value = '';
+  document.getElementById('ai-status').textContent = '';
+  document.getElementById('ai-box').style.display = (config && config.workerUrl) ? 'block' : 'none';
   overlay.classList.remove('hidden');
 }
 function closeForm(){ document.getElementById('modal-overlay').classList.add('hidden'); }
@@ -790,6 +884,7 @@ document.getElementById('btn-entrar-pin').addEventListener('click', submitPin);
 document.getElementById('cfg-pin').addEventListener('keydown', (e) => { if(e.key === 'Enter') submitPin(); });
 document.getElementById('btn-volver').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
+document.getElementById('btn-ai-analizar').addEventListener('click', analizarConIA);
 window.addEventListener('hashchange', renderRoute);
 
 (async function init(){

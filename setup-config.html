@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Generar configuración cifrada</title>
+<style>
+  body{font-family:Georgia,serif;background:#EFEAE0;color:#182620;max-width:640px;margin:40px auto;padding:0 20px;}
+  h1{font-size:22px;color:#243329;}
+  p.hint{color:#7A7A6E;font-size:13.5px;line-height:1.5;}
+  label{display:block;font-family:monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#7A7A6E;margin:16px 0 5px;}
+  input{width:100%;padding:9px 10px;border:1px solid #C9C0AC;border-radius:3px;font-family:monospace;font-size:14px;box-sizing:border-box;background:#FBF9F4;}
+  button{margin-top:20px;padding:11px 20px;border:none;border-radius:3px;background:#A67C3D;color:#FBF9F4;font-family:monospace;font-size:13px;cursor:pointer;}
+  button:hover{background:#8A6530;}
+  textarea{width:100%;height:160px;margin-top:16px;font-family:monospace;font-size:12px;padding:10px;border:1px solid #C9C0AC;border-radius:3px;box-sizing:border-box;}
+  #result{display:none;}
+  .warn{color:#9B3B3B;font-size:13px;margin-top:6px;}
+  .ok{color:#4B7455;font-weight:600;}
+  #btn-download{background:#4B7455;margin-left:10px;}
+  #btn-download:hover{background:#3d6046;}
+</style>
+</head>
+<body>
+  <h1>Generador de configuración cifrada</h1>
+  <p class="hint">
+    Esta página no se conecta a internet ni envía nada a ningún lado — todo el cifrado ocurre
+    en tu navegador. Abrila local (doble clic en el archivo), completá los datos, generá el
+    archivo, y subilo al repo como <code>config.enc.json</code>. Después podés borrar esta
+    página de tu compu si querés; no hace falta subirla al repositorio.
+    <br><br>
+    Los campos del Worker son opcionales — completalos solo si ya armaste el resumen automático
+    con IA (Cloudflare Worker). Si todavía no lo armaste, dejalos en blanco y generá igual el
+    archivo; podés volver a generarlo más adelante para agregarlos.
+  </p>
+
+  <label>Usuario de GitHub</label>
+  <input id="owner" placeholder="blasglen">
+  <label>Repositorio</label>
+  <input id="repo" placeholder="pericias-contables">
+  <label>Rama</label>
+  <input id="branch" value="main">
+  <label>Token de acceso personal (fine-grained, Contents: read/write)</label>
+  <input id="token" type="password" placeholder="github_pat_…">
+
+  <label style="margin-top:26px;">URL del Worker de resumen con IA (opcional)</label>
+  <input id="workerUrl" placeholder="https://pericias-resumen.tuusuario.workers.dev">
+  <label>Clave de acceso al Worker (la que vos elegiste en Cloudflare)</label>
+  <input id="workerKey" type="password" placeholder="clave-larga-random">
+
+  <label style="margin-top:26px;">PIN a usar (recomendado: 6+ caracteres, letras y números)</label>
+  <input id="pin" type="password" placeholder="ej: gelato26">
+  <label>Repetir PIN</label>
+  <input id="pin2" type="password" placeholder="repetir">
+
+  <button id="btn-generar">Generar config.enc.json</button>
+  <div id="error" class="warn"></div>
+
+  <div id="result">
+    <p class="ok">✓ Listo. Copiá este contenido o descargá el archivo:</p>
+    <textarea id="output" readonly></textarea>
+    <button id="btn-download">Descargar config.enc.json</button>
+  </div>
+
+<script>
+const ITERATIONS = 300000;
+
+function b64(bytes){
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+
+async function deriveKey(pin, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256'},
+    keyMaterial,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+
+async function encryptConfig(pin, obj){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pin, salt, ITERATIONS);
+  const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, plaintext);
+  return {
+    salt: b64(salt),
+    iv: b64(iv),
+    data: b64(new Uint8Array(cipherBuf)),
+    iterations: ITERATIONS
+  };
+}
+
+document.getElementById('btn-generar').addEventListener('click', async () => {
+  const owner = document.getElementById('owner').value.trim();
+  const repo = document.getElementById('repo').value.trim();
+  const branch = document.getElementById('branch').value.trim() || 'main';
+  const token = document.getElementById('token').value.trim();
+  const workerUrl = document.getElementById('workerUrl').value.trim();
+  const workerKey = document.getElementById('workerKey').value.trim();
+  const pin = document.getElementById('pin').value;
+  const pin2 = document.getElementById('pin2').value;
+  const errorDiv = document.getElementById('error');
+  errorDiv.textContent = '';
+
+  if(!owner || !repo || !token){ errorDiv.textContent = 'Completá usuario, repositorio y token.'; return; }
+  if(!pin || pin.length < 4){ errorDiv.textContent = 'El PIN debe tener al menos 4 caracteres (recomendado 6+).'; return; }
+  if(pin !== pin2){ errorDiv.textContent = 'Los dos PIN no coinciden.'; return; }
+
+  const blob = await encryptConfig(pin, {owner, repo, branch, token, workerUrl, workerKey});
+  const json = JSON.stringify(blob, null, 2);
+  document.getElementById('output').value = json;
+  document.getElementById('result').style.display = 'block';
+
+  document.getElementById('btn-download').onclick = () => {
+    const file = new Blob([json], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = 'config.enc.json';
+    a.click();
+  };
+});
+</script>
+</body>
+</html>
