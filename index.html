@@ -118,7 +118,7 @@
       <h1>Registro de Pericias Contables</h1>
     </div>
     <div class="masthead-actions">
-      <button class="btn btn-ghost" id="btn-config">⚙ Configuración</button>
+      <button class="btn btn-ghost" id="btn-config">🔒 Bloquear</button>
       <button class="btn btn-brass" id="btn-nueva">+ Nueva pericia</button>
     </div>
   </div>
@@ -174,30 +174,28 @@
   </div>
 </div>
 
-<!-- MODAL: configuración GitHub -->
+<!-- MODAL: ingreso de PIN -->
 <div id="config-overlay" class="hidden">
   <div class="modal-box">
-    <h2>Configuración de GitHub</h2>
-    <p class="hint">Estos datos quedan guardados únicamente en este navegador (no se suben a ningún lado). Con esto la app lee y guarda las pericias directamente en tu repositorio privado.</p>
-    <div class="field"><label>Usuario u organización</label><input class="mono" id="cfg-owner" placeholder="ej: claudios"></div>
-    <div class="field"><label>Repositorio</label><input class="mono" id="cfg-repo" placeholder="ej: pericias-contables"></div>
-    <div class="field"><label>Rama</label><input class="mono" id="cfg-branch" placeholder="main" value="main"></div>
-    <div class="field"><label>Token de acceso personal (fine-grained)</label><input class="mono" id="cfg-token" type="password" placeholder="github_pat_…"></div>
-    <p class="hint">El token necesita permiso <b>Contents: Read and write</b> solo sobre este repositorio. Generalo en GitHub → Settings → Developer settings → Fine-grained tokens.</p>
+    <h2>Ingresá el PIN</h2>
+    <p class="hint">El PIN desbloquea el acceso a los datos en este dispositivo. No hace falta usuario ni email.</p>
+    <div class="field"><label>PIN</label><input class="mono" id="cfg-pin" type="password" placeholder="••••••" autocomplete="off"></div>
+    <div id="pin-error" class="hint" style="color:var(--alert);display:none;">PIN incorrecto. Probá de nuevo.</div>
     <div class="modal-actions">
-      <div class="left"><button class="btn btn-alert" id="btn-borrar-config">Borrar configuración</button></div>
-      <div class="right"><button class="btn btn-ghost" id="btn-cancelar-config">Cancelar</button><button class="btn btn-brass" id="btn-guardar-config">Guardar y conectar</button></div>
+      <div class="left"></div>
+      <div class="right"><button class="btn btn-brass" id="btn-entrar-pin">Entrar</button></div>
     </div>
   </div>
 </div>
 
 <script>
-const DATA_PATH = 'data/pericias.json';
-const CONFIG_KEY = 'gh-pericias-config';
+const DATA_PATH = 'pericias.json';
+const CONFIG_FILE = 'config.enc.json';
+const SESSION_KEY = 'gh-pericias-session';
 let pericias = [];
 let currentSha = null;
 let expandedId = null;
-let config = null;
+let config = null; // { owner, repo, branch, token } — solo en memoria/sessionStorage, nunca en disco
 let saving = false;
 
 const ESTADO_COLOR = {
@@ -235,20 +233,92 @@ function b64ToUtf8(b64){
   return new TextDecoder().decode(bytes);
 }
 
-/* ---------- Config (localStorage, this browser only) ---------- */
-function loadConfig(){
+/* ---------- Cifrado (PBKDF2 + AES-GCM) ---------- */
+function b64ToBytes(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+async function deriveKey(pin, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256'},
+    keyMaterial, {name:'AES-GCM', length:256}, false, ['decrypt']
+  );
+}
+async function decryptConfig(pin, blob){
+  const salt = b64ToBytes(blob.salt);
+  const iv = b64ToBytes(blob.iv);
+  const data = b64ToBytes(blob.data);
+  const key = await deriveKey(pin, salt, blob.iterations);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, data); // lanza error si el PIN es incorrecto
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+// Clave separada (misma sal, distinta cadena de origen) usada para cifrar los DATOS de las pericias,
+// no solo el token. Así, aunque alguien acceda al archivo pericias.json directamente, ve solo texto cifrado.
+async function deriveDataKey(pin, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin + '::datos'), {name:'PBKDF2'}, false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256'},
+    keyMaterial, {name:'AES-GCM', length:256}, true, ['encrypt','decrypt']
+  );
+  const raw = await crypto.subtle.exportKey('raw', key);
+  return b64FromBytes(new Uint8Array(raw));
+}
+function b64FromBytes(bytes){
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+async function importDataKey(dataKeyB64){
+  return crypto.subtle.importKey('raw', b64ToBytes(dataKeyB64), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function encryptData(dataKeyB64, obj){
+  const key = await importDataKey(dataKeyB64);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, plaintext);
+  return JSON.stringify({ enc: true, iv: b64FromBytes(iv), data: b64FromBytes(new Uint8Array(cipherBuf)) });
+}
+async function decryptData(dataKeyB64, jsonText){
+  let parsed;
+  try{ parsed = JSON.parse(jsonText); }catch(e){ throw new Error('Archivo de datos inválido.'); }
+  if(Array.isArray(parsed)) return parsed; // formato viejo sin cifrar (migración automática al primer guardado)
+  if(!parsed || !parsed.enc) throw new Error('Archivo de datos con formato desconocido.');
+  const key = await importDataKey(dataKeyB64);
+  const iv = b64ToBytes(parsed.iv);
+  const data = b64ToBytes(parsed.data);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, data);
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+let encryptedBlob = null;
+async function fetchEncryptedConfig(){
+  if(encryptedBlob) return encryptedBlob;
+  const res = await fetch(CONFIG_FILE + '?t=' + Date.now());
+  if(!res.ok) throw new Error('No se encontró config.enc.json en el repositorio.');
+  encryptedBlob = await res.json();
+  return encryptedBlob;
+}
+
+/* ---------- Sesión (sessionStorage: se borra al cerrar el navegador) ---------- */
+function loadSessionConfig(){
   try{
-    const raw = localStorage.getItem(CONFIG_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY);
     config = raw ? JSON.parse(raw) : null;
   }catch(e){ config = null; }
 }
-function saveConfig(c){
+function saveSessionConfig(c){
   config = c;
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(c));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(c));
 }
-function clearConfig(){
+function clearSession(){
   config = null;
-  localStorage.removeItem(CONFIG_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 function setConn(state, text){
@@ -281,13 +351,15 @@ async function ghLoad(){
   if(!res.ok) throw new Error('HTTP_' + res.status);
   const json = await res.json();
   currentSha = json.sha;
-  return JSON.parse(b64ToUtf8(json.content));
+  const rawText = b64ToUtf8(json.content);
+  return await decryptData(config.dataKey, rawText);
 }
 
 async function ghSave(data, message){
+  const encryptedPayload = await encryptData(config.dataKey, data);
   const body = {
     message,
-    content: utf8ToB64(JSON.stringify(data, null, 2)),
+    content: utf8ToB64(encryptedPayload),
     branch: config.branch
   };
   if(currentSha) body.sha = currentSha;
@@ -300,8 +372,10 @@ async function ghSave(data, message){
 
 async function connectAndLoad(){
   if(!config || !config.owner || !config.repo || !config.token){
-    setConn('warn', 'Sin configurar — abrí "Configuración" para conectar tu repositorio de GitHub');
+    setConn('warn', 'Bloqueado — ingresá el PIN para acceder a los datos');
     pericias = [];
+    document.getElementById('config-overlay').classList.remove('hidden');
+    document.getElementById('cfg-pin').focus();
     renderAll();
     return;
   }
@@ -550,26 +624,41 @@ async function deletePericia(){
   await persist(`Elimina pericia expte. ${p ? p.expediente || id : id}`);
 }
 
-/* ---------- Modal configuración ---------- */
-function openConfig(){
-  const c = config || {owner:'',repo:'',branch:'main',token:''};
-  document.getElementById('cfg-owner').value = c.owner || '';
-  document.getElementById('cfg-repo').value = c.repo || '';
-  document.getElementById('cfg-branch').value = c.branch || 'main';
-  document.getElementById('cfg-token').value = c.token || '';
+/* ---------- Modal PIN ---------- */
+function openPinPrompt(){
+  document.getElementById('cfg-pin').value = '';
+  document.getElementById('pin-error').style.display = 'none';
   document.getElementById('config-overlay').classList.remove('hidden');
+  document.getElementById('cfg-pin').focus();
 }
-function closeConfig(){ document.getElementById('config-overlay').classList.add('hidden'); }
+function closePinPrompt(){ document.getElementById('config-overlay').classList.add('hidden'); }
 
-async function saveConfigForm(){
-  const owner = document.getElementById('cfg-owner').value.trim();
-  const repo = document.getElementById('cfg-repo').value.trim();
-  const branch = document.getElementById('cfg-branch').value.trim() || 'main';
-  const token = document.getElementById('cfg-token').value.trim();
-  if(!owner || !repo || !token){ alert('Completá usuario, repositorio y token.'); return; }
-  saveConfig({owner, repo, branch, token});
-  closeConfig();
-  await connectAndLoad();
+async function submitPin(){
+  const pin = document.getElementById('cfg-pin').value;
+  const errorDiv = document.getElementById('pin-error');
+  errorDiv.style.display = 'none';
+  if(!pin){ return; }
+  try{
+    setConn('warn', 'Verificando PIN…');
+    const blob = await fetchEncryptedConfig();
+    const decoded = await decryptConfig(pin, blob); // {owner, repo, branch, token}
+    const dataKey = await deriveDataKey(pin, b64ToBytes(blob.salt), blob.iterations);
+    decoded.dataKey = dataKey;
+    saveSessionConfig(decoded);
+    closePinPrompt();
+    await connectAndLoad();
+  }catch(e){
+    errorDiv.style.display = 'block';
+    setConn('error', 'PIN incorrecto o no se pudo leer la configuración.');
+  }
+}
+
+function lockApp(){
+  clearSession();
+  pericias = [];
+  renderAll();
+  openPinPrompt();
+  setConn('warn', 'Bloqueado — ingresá el PIN para acceder a los datos');
 }
 
 document.getElementById('btn-nueva').addEventListener('click', () => openForm(null));
@@ -581,20 +670,12 @@ document.getElementById('filter-contador').addEventListener('change', renderList
 document.getElementById('filter-estado').addEventListener('change', renderList);
 document.getElementById('sort-by').addEventListener('change', renderList);
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeForm(); });
-document.getElementById('config-overlay').addEventListener('click', (e) => { if(e.target.id === 'config-overlay') closeConfig(); });
-document.getElementById('btn-config').addEventListener('click', openConfig);
-document.getElementById('btn-cancelar-config').addEventListener('click', closeConfig);
-document.getElementById('btn-guardar-config').addEventListener('click', saveConfigForm);
-document.getElementById('btn-borrar-config').addEventListener('click', () => {
-  if(confirm('¿Borrar la configuración guardada en este navegador?')){
-    clearConfig();
-    closeConfig();
-    connectAndLoad();
-  }
-});
+document.getElementById('btn-config').addEventListener('click', lockApp);
+document.getElementById('btn-entrar-pin').addEventListener('click', submitPin);
+document.getElementById('cfg-pin').addEventListener('keydown', (e) => { if(e.key === 'Enter') submitPin(); });
 
 (async function init(){
-  loadConfig();
+  loadSessionConfig();
   await connectAndLoad();
 })();
 </script>
