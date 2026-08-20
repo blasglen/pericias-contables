@@ -587,12 +587,10 @@ function escapeHtml(str){
 function populateFilters(){
   const contadorSel = document.getElementById('filter-contador');
   const estadoSel = document.getElementById('filter-estado');
-  const datalist = document.getElementById('contadores-list');
   const contadores = [...new Set(pericias.map(p => p.contador).filter(Boolean))].sort();
   const currentContador = contadorSel.value;
   contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + contadores.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   contadorSel.value = currentContador;
-  datalist.innerHTML = contadores.map(c => `<option value="${escapeHtml(c)}">`).join('');
   if(estadoSel.options.length <= 1){
     estadoSel.innerHTML = '<option value="">Todos los estados</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
   }
