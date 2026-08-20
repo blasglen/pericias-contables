@@ -196,6 +196,7 @@
         <option value="reciente" selected>Ordenar: movimiento más reciente</option>
         <option value="vencimiento">Ordenar: vencimiento más próximo</option>
         <option value="expediente">Ordenar: n° de expediente</option>
+        <option value="alfabetico">Ordenar: alfabético (carátula)</option>
       </select>
     </div>
 
@@ -334,6 +335,7 @@
 </div>
 
 <script>
+const CONTADORES = ['Garate, Alejandra', 'Malzone, Roxana', 'Iogha, Romina', 'Giovanetti, Marcela', 'Cebrero, Luciana', 'Salvanhac, Daniela', 'Morettini, Gabriela'];
 const DATA_PATH = 'pericias.json';
 const CONFIG_FILE = 'config.enc.json';
 const SESSION_KEY = 'gh-pericias-session';
@@ -587,9 +589,8 @@ function escapeHtml(str){
 function populateFilters(){
   const contadorSel = document.getElementById('filter-contador');
   const estadoSel = document.getElementById('filter-estado');
-  const contadores = [...new Set(pericias.map(p => p.contador).filter(Boolean))].sort();
   const currentContador = contadorSel.value;
-  contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + contadores.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + CONTADORES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   contadorSel.value = currentContador;
   if(estadoSel.options.length <= 1){
     estadoSel.innerHTML = '<option value="">Todos los estados</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
@@ -632,6 +633,8 @@ function getFiltered(){
     });
   } else if(sortBy === 'reciente'){
     list.sort((a,b) => new Date(ultimoMovimiento(b) || 0) - new Date(ultimoMovimiento(a) || 0));
+  } else if(sortBy === 'alfabetico'){
+    list.sort((a,b) => (a.caratula||'').localeCompare(b.caratula||'', 'es', {sensitivity:'base'}));
   } else {
     list.sort((a,b) => (a.expediente||'').localeCompare(b.expediente||'', undefined, {numeric:true}));
   }
