@@ -191,6 +191,7 @@
     <div class="controls">
       <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
       <select id="filter-contador"><option value="">Todos los contadores</option></select>
+      <select id="filter-organismo"><option value="">Todos los organismos</option></select>
       <select id="filter-estado"><option value="">Todos los estados</option></select>
       <select id="sort-by">
         <option value="reciente" selected>Ordenar: movimiento más reciente</option>
@@ -588,10 +589,15 @@ function escapeHtml(str){
 /* ---------- Render ---------- */
 function populateFilters(){
   const contadorSel = document.getElementById('filter-contador');
+  const organismoSel = document.getElementById('filter-organismo');
   const estadoSel = document.getElementById('filter-estado');
   const currentContador = contadorSel.value;
   contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + CONTADORES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   contadorSel.value = currentContador;
+  const currentOrganismo = organismoSel.value;
+  const organismos = [...new Set(pericias.map(p => p.juzgado).filter(Boolean))].sort();
+  organismoSel.innerHTML = '<option value="">Todos los organismos</option>' + organismos.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+  organismoSel.value = currentOrganismo;
   if(estadoSel.options.length <= 1){
     estadoSel.innerHTML = '<option value="">Todos los estados</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
   }
@@ -613,10 +619,12 @@ function renderStats(){
 function getFiltered(){
   const search = document.getElementById('search').value.trim().toLowerCase();
   const contador = document.getElementById('filter-contador').value;
+  const organismo = document.getElementById('filter-organismo').value;
   const estado = document.getElementById('filter-estado').value;
   const sortBy = document.getElementById('sort-by').value;
   let list = pericias.filter(p => {
     if(contador && p.contador !== contador) return false;
+    if(organismo && p.juzgado !== organismo) return false;
     if(estado && p.estado !== estado) return false;
     if(search){
       const blob = `${p.expediente} ${p.caratula} ${p.contador} ${p.juzgado}`.toLowerCase();
@@ -1342,6 +1350,7 @@ document.getElementById('btn-guardar').addEventListener('click', saveForm);
 document.getElementById('btn-eliminar').addEventListener('click', deletePericia);
 document.getElementById('search').addEventListener('input', renderList);
 document.getElementById('filter-contador').addEventListener('change', renderList);
+document.getElementById('filter-organismo').addEventListener('change', renderList);
 document.getElementById('filter-estado').addEventListener('change', renderList);
 document.getElementById('sort-by').addEventListener('change', renderList);
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeForm(); });
