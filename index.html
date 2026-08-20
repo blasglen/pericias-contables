@@ -276,7 +276,18 @@
 
     <div class="field-row">
       <div class="field"><label>N° de expediente</label><input id="f-expediente" placeholder="12345/2026"></div>
-      <div class="field"><label>Contador a cargo</label><input id="f-contador" list="contadores-list" placeholder="Nombre del contador"><datalist id="contadores-list"></datalist></div>
+      <div class="field"><label>Contador a cargo</label>
+        <select id="f-contador">
+          <option value="">Seleccionar…</option>
+          <option value="Garate, Alejandra">Garate, Alejandra</option>
+          <option value="Malzone, Roxana">Malzone, Roxana</option>
+          <option value="Iogha, Romina">Iogha, Romina</option>
+          <option value="Giovanetti, Marcela">Giovanetti, Marcela</option>
+          <option value="Cebrero, Luciana">Cebrero, Luciana</option>
+          <option value="Salvanhac, Daniela">Salvanhac, Daniela</option>
+          <option value="Morettini, Gabriela">Morettini, Gabriela</option>
+        </select>
+      </div>
     </div>
     <div class="field"><label>Carátula / partes</label><input id="f-caratula" placeholder="Pérez, Juan c/ López, Ana s/ Daños y Perjuicios"></div>
     <div class="field"><label>Juzgado / fuero</label><input id="f-juzgado" placeholder="Juzgado Civil y Comercial N° 4"></div>
