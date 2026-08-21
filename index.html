@@ -155,10 +155,23 @@
   }
 
   .nov-card{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:18px 20px;margin-bottom:22px;}
-  .nov-card::before{content:attr(data-tab-label);position:absolute;top:-14px;left:18px;background:var(--brass);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
+  .nov-card::before{content:attr(data-tab-label);position:absolute;top:-14px;left:18px;background:var(--tab-color,var(--brass));color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
   .nov-card .nov-texto{font-size:15px;line-height:1.5;}
   .nov-card .nov-del{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--slate);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;}
   .nov-card .nov-del:hover{color:var(--alert);}
+  .nov-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:10px;margin-bottom:8px;}
+  .nov-tag-personal{background:#e2ebec;color:var(--teal);}
+  .nov-tag-expediente{background:var(--paper-2);color:var(--brass-dark);}
+
+  .nov-filter{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .nov-filter-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;background:transparent;border:1px solid var(--line);color:var(--slate);padding:6px 12px;border-radius:14px;cursor:pointer;transition:all .12s ease;}
+  .nov-filter-btn:hover{border-color:var(--brass);color:var(--folder-dark);}
+  .nov-filter-btn.active{background:var(--folder-dark);border-color:var(--folder-dark);color:var(--white-ish);}
+
+  .nov-origen-toggle{display:flex;gap:6px;margin-bottom:8px;}
+  .nov-origen-btn{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.03em;background:var(--paper);border:1px solid var(--line);color:var(--slate);padding:6px 10px;border-radius:3px;cursor:pointer;}
+  .nov-origen-btn.active[data-origen="personal"]{background:#e2ebec;border-color:var(--teal);color:var(--teal);}
+  .nov-origen-btn.active[data-origen="expediente"]{background:var(--paper-2);border-color:var(--brass);color:var(--brass-dark);}
   .ai-box{background:var(--paper-2);border:1px dashed var(--brass);border-radius:4px;padding:14px 16px;margin-bottom:20px;}
   .ai-box label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;}
   .field{margin-bottom:14px;}
@@ -245,10 +258,21 @@
     </div>
 
     <div class="timeline-title" style="margin-top:24px;">Novedades</div>
-    <div class="add-novedad" style="margin-bottom:22px;">
+    <div class="nov-filter" id="nov-filter">
+      <button type="button" class="nov-filter-btn active" data-filtro="todas" onclick="setNovFiltro('todas')">Todas</button>
+      <button type="button" class="nov-filter-btn" data-filtro="personal" onclick="setNovFiltro('personal')">🖊 Mamá</button>
+      <button type="button" class="nov-filter-btn" data-filtro="expediente" onclick="setNovFiltro('expediente')">📄 Expediente</button>
+    </div>
+    <div class="add-novedad" style="margin-bottom:8px;">
       <input type="date" id="detail-nov-fecha" value="">
-      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc."></textarea>
+      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc." oninput="onNovTextoInput()"></textarea>
       <button class="btn btn-brass btn-small" id="btn-detail-agregar">Agregar</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:22px;">
+      <div class="nov-origen-toggle" id="nov-origen-toggle">
+        <button type="button" class="nov-origen-btn active" data-origen="personal" onclick="setNovOrigenManual('personal')">🖊 Nota personal</button>
+        <button type="button" class="nov-origen-btn" data-origen="expediente" onclick="setNovOrigenManual('expediente')">📄 Del expediente</button>
+      </div>
     </div>
     <div id="detail-novedades"></div>
   </div>
@@ -911,16 +935,81 @@ function renderDetail(p){
   document.getElementById('buscar-input').value = '';
   document.getElementById('buscar-status').textContent = '';
 
-  const novedadesOrdenadas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  novFiltroActual = 'todas';
+  novOrigenManual = null;
+  renderNovOrigenToggle();
+  renderNovedadesList(p);
+}
+
+/* ---------- Novedades: clasificación personal vs. expediente ---------- */
+let novFiltroActual = 'todas';
+let novOrigenManual = null; // null = auto, o 'personal' / 'expediente' si el usuario lo forzó
+
+function classifyNovedadTexto(texto){
+  return (texto || '').trim().length > 180 ? 'expediente' : 'personal';
+}
+
+function inferNovedadOrigen(n){
+  return n.origen === 'personal' || n.origen === 'expediente' ? n.origen : classifyNovedadTexto(n.texto);
+}
+
+function onNovTextoInput(){
+  if(novOrigenManual) return; // el usuario ya eligió a mano, no lo pisamos
+  const texto = document.getElementById('detail-nov-texto').value;
+  renderNovOrigenToggle(classifyNovedadTexto(texto));
+}
+
+function setNovOrigenManual(origen){
+  novOrigenManual = origen;
+  renderNovOrigenToggle(origen);
+}
+
+function renderNovOrigenToggle(activo){
+  const texto = document.getElementById('detail-nov-texto');
+  const origenActivo = activo || novOrigenManual || classifyNovedadTexto(texto ? texto.value : '');
+  document.querySelectorAll('#nov-origen-toggle .nov-origen-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-origen') === origenActivo);
+  });
+}
+
+function setNovFiltro(filtro){
+  novFiltroActual = filtro;
+  document.querySelectorAll('#nov-filter .nov-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-filtro') === filtro);
+  });
+  const route = currentRoute();
+  if(route.view === 'detail'){
+    const p = pericias.find(x => x.id === route.id);
+    if(p) renderNovedadesList(p);
+  }
+}
+
+function renderNovedadesList(p){
+  const todas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const filtradas = novFiltroActual === 'todas'
+    ? todas
+    : todas.filter(n => inferNovedadOrigen(n) === novFiltroActual);
+
   const container = document.getElementById('detail-novedades');
-  container.innerHTML = novedadesOrdenadas.length === 0
-    ? '<div class="no-novedades">Sin novedades registradas todavía. Agregá la primera abajo.</div>'
-    : novedadesOrdenadas.map(n => `
-        <article class="nov-card" id="bloque-nov-${n.id}" data-tab-label="${fmtDate(n.fecha)}">
+  if(todas.length === 0){
+    container.innerHTML = '<div class="no-novedades">Sin novedades registradas todavía. Agregá la primera abajo.</div>';
+    return;
+  }
+  if(filtradas.length === 0){
+    container.innerHTML = '<div class="no-novedades">No hay novedades que coincidan con este filtro.</div>';
+    return;
+  }
+  container.innerHTML = filtradas.map(n => {
+    const origen = inferNovedadOrigen(n);
+    const esPersonal = origen === 'personal';
+    return `
+        <article class="nov-card" id="bloque-nov-${n.id}" data-tab-label="${fmtDate(n.fecha)}" style="--tab-color:${esPersonal ? 'var(--teal)' : 'var(--brass)'};">
           <button class="nov-del" onclick="deleteNovedad('${p.id}','${n.id}')">Eliminar</button>
+          <span class="nov-tag ${esPersonal ? 'nov-tag-personal' : 'nov-tag-expediente'}">${esPersonal ? '🖊 Mamá' : '📄 Expediente'}</span>
           <div class="nov-texto">${escapeHtml(n.texto)}</div>
         </article>
-      `).join('');
+      `;
+  }).join('');
 }
 
 function toggleContestacionView(){
@@ -950,9 +1039,12 @@ async function addNovedadDetail(){
   const textoInput = document.getElementById('detail-nov-texto');
   const texto = textoInput.value.trim();
   if(!texto){ textoInput.focus(); return; }
+  const origen = novOrigenManual || classifyNovedadTexto(texto);
   const p = pericias.find(x => x.id === route.id);
-  p.novedades.push({ id: uid(), fecha: fechaInput.value || new Date().toISOString().slice(0,10), texto });
+  p.novedades.push({ id: uid(), fecha: fechaInput.value || new Date().toISOString().slice(0,10), texto, origen });
   textoInput.value = '';
+  novOrigenManual = null;
+  renderNovOrigenToggle('personal');
   renderStats(); renderRoute();
   await persist(`Novedad en expte. ${p.expediente || p.id}`);
 }
@@ -1123,6 +1215,8 @@ async function analizarNovedadConIA(){
       document.getElementById('detail-ai-preview').classList.add('hidden');
       if(r.fecha) document.getElementById('detail-nov-fecha').value = r.fecha;
       if(r.resumen_novedad) document.getElementById('detail-nov-texto').value = r.resumen_novedad;
+      novOrigenManual = null;
+      onNovTextoInput();
       statusDiv.style.color = 'var(--ok)';
       statusDiv.textContent = '✓ Listo — revisá el texto de abajo antes de tocar "Agregar", la IA puede equivocarse.' + truncadoTxt;
     }
@@ -1173,6 +1267,8 @@ function tratarComoNovedadSimple(){
   document.getElementById('detail-nov-fecha').value = pendingDocPrincipal.fecha;
   document.getElementById('detail-nov-texto').value = pendingDocPrincipal.resumen;
   pendingDocPrincipal = null;
+  novOrigenManual = null;
+  onNovTextoInput();
   document.getElementById('detail-ai-preview').classList.add('hidden');
   document.getElementById('detail-ai-status').textContent = 'Copiado abajo como novedad simple — revisá y tocá "Agregar".';
 }
