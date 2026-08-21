@@ -144,6 +144,16 @@
   .pericial-empty{color:var(--slate);font-style:italic;font-size:14px;}
   .ficha-madre-actions{display:flex;gap:8px;margin-top:16px;}
 
+  .doc-toggle{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:var(--brass);color:var(--white-ish);border:2px solid var(--white-ish);cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.22);z-index:2;transition:background .12s ease,transform .12s ease;}
+  .doc-toggle:hover{background:var(--brass-dark);transform:translateY(-50%) scale(1.06);}
+  .doc-toggle-right{right:-16px;}
+  .doc-toggle-left{left:-16px;}
+  .contestacion-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass-dark);background:var(--paper-2);padding:3px 8px;border-radius:3px;margin-bottom:10px;}
+  @media (max-width:800px){
+    .doc-toggle-right{right:-12px;width:32px;height:32px;font-size:15px;}
+    .doc-toggle-left{left:-12px;width:32px;height:32px;font-size:15px;}
+  }
+
   .nov-card{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:18px 20px;margin-bottom:22px;}
   .nov-card::before{content:attr(data-tab-label);position:absolute;top:-14px;left:18px;background:var(--brass);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
   .nov-card .nov-texto{font-size:15px;line-height:1.5;}
@@ -834,27 +844,53 @@ function renderDatosClaveGrid(datosClave){
 function renderDetail(p){
   const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
   const vClass = venciClass(p.vencimiento, p.estado);
-  document.getElementById('detail-header').innerHTML = `
-    <div class="ficha-madre" id="bloque-header" data-tab-label="DESIGNACIÓN · EXPEDIENTE">
+
+  const documentos = p.documentos || [];
+  const contestacionDoc = documentos.find(d => (d.tipo_documento || '').toLowerCase().includes('contestaci'));
+  const otrosDocumentos = documentos.filter(d => d !== contestacionDoc);
+
+  const tabDemanda = 'DESIGNACIÓN · EXPEDIENTE';
+  const tabContestacion = `${escapeHtml((contestacionDoc && contestacionDoc.tipo_documento || 'CONTESTACIÓN DE DEMANDA').toUpperCase())} · ${contestacionDoc ? fmtDate(contestacionDoc.fecha) : ''}`;
+
+  const vistaContestacionHtml = contestacionDoc ? `
+    <div id="vista-contestacion" class="hidden">
+      <button class="doc-toggle doc-toggle-left" id="btn-doc-toggle-left" onclick="toggleContestacionView()" title="Volver a la demanda">←</button>
+      <span class="contestacion-tag">${escapeHtml(contestacionDoc.tipo_documento || 'Contestación de demanda')}</span>
       <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
-      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')}</div>
-      <div class="ficha-madre-grid">
-        <div><span class="lbl">Perito contador designado</span>${escapeHtml(p.contador || '—')}</div>
-        <div><span class="lbl">Fecha de designación</span>${fmtDate(p.fecha_designacion)}</div>
-        <div><span class="lbl">Estado actual</span><span class="estado-pill" style="background:${color};display:inline-block;">${escapeHtml(p.estado)}</span></div>
-        <div><span class="lbl">Próximo vencimiento</span><span class="${vClass}">${fmtDate(p.vencimiento)}</span></div>
-      </div>
-      ${renderDatosClaveGrid(p.datos_clave)}
-      ${p.resumen ? `<div class="resumen">${escapeHtml(p.resumen).replace(/\n/g,'<br>')}</div>` : ''}
+      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')} · ${fmtDate(contestacionDoc.fecha)}</div>
+      ${renderDatosClaveGrid(contestacionDoc.datos_clave)}
+      ${contestacionDoc.resumen
+        ? `<div class="resumen" style="${(contestacionDoc.datos_clave||[]).length ? '' : 'border-top:none;padding-top:0;margin-top:0;'}">${escapeHtml(contestacionDoc.resumen).replace(/\n/g,'<br>')}</div>`
+        : `<div class="resumen" style="border-top:none;padding-top:0;margin-top:0;color:var(--slate);font-style:italic;">Todavía no hay datos cargados de la contestación.</div>`}
       <div class="ficha-madre-actions">
-        <button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos del expediente</button>
-        <button class="btn btn-alert btn-small" onclick="deletePericiaById('${p.id}')">Eliminar pericia</button>
+        <button class="btn btn-ghost btn-small" onclick="deleteDocumento('${p.id}','${contestacionDoc.id}')">Eliminar contestación</button>
       </div>
+    </div>` : '';
+
+  document.getElementById('detail-header').innerHTML = `
+    <div class="ficha-madre" id="bloque-header" data-tab-label="${tabDemanda}" data-tab-demanda="${escapeHtml(tabDemanda)}" data-tab-contestacion="${tabContestacion}">
+      <div id="vista-demanda">
+        ${contestacionDoc ? `<button class="doc-toggle doc-toggle-right" id="btn-doc-toggle-right" onclick="toggleContestacionView()" title="Ver contestación de demanda">→</button>` : ''}
+        <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
+        <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')}</div>
+        <div class="ficha-madre-grid">
+          <div><span class="lbl">Perito contador designado</span>${escapeHtml(p.contador || '—')}</div>
+          <div><span class="lbl">Fecha de designación</span>${fmtDate(p.fecha_designacion)}</div>
+          <div><span class="lbl">Estado actual</span><span class="estado-pill" style="background:${color};display:inline-block;">${escapeHtml(p.estado)}</span></div>
+          <div><span class="lbl">Próximo vencimiento</span><span class="${vClass}">${fmtDate(p.vencimiento)}</span></div>
+        </div>
+        ${renderDatosClaveGrid(p.datos_clave)}
+        ${p.resumen ? `<div class="resumen">${escapeHtml(p.resumen).replace(/\n/g,'<br>')}</div>` : ''}
+        <div class="ficha-madre-actions">
+          <button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos del expediente</button>
+          <button class="btn btn-alert btn-small" onclick="deletePericiaById('${p.id}')">Eliminar pericia</button>
+        </div>
+      </div>
+      ${vistaContestacionHtml}
     </div>
   `;
 
-  const documentos = p.documentos || [];
-  document.getElementById('detail-documentos').innerHTML = documentos.map(doc => `
+  document.getElementById('detail-documentos').innerHTML = otrosDocumentos.map(doc => `
     <div class="ficha-madre ficha-documento" id="bloque-doc-${doc.id}" data-tab-label="${escapeHtml((doc.tipo_documento || 'Documento').toUpperCase())} · ${fmtDate(doc.fecha)}">
       <div class="doc-actions">
         <button class="nov-del" onclick="deleteDocumento('${p.id}','${doc.id}')">Eliminar</button>
@@ -885,6 +921,26 @@ function renderDetail(p){
           <div class="nov-texto">${escapeHtml(n.texto)}</div>
         </article>
       `).join('');
+}
+
+function toggleContestacionView(){
+  const bloque = document.getElementById('bloque-header');
+  const vDemanda = document.getElementById('vista-demanda');
+  const vContest = document.getElementById('vista-contestacion');
+  if(!bloque || !vDemanda || !vContest) return;
+
+  const mostrandoContestacion = !vContest.classList.contains('hidden');
+  if(mostrandoContestacion){
+    vContest.classList.add('hidden');
+    vDemanda.classList.remove('hidden');
+    bloque.classList.remove('ficha-documento');
+    bloque.setAttribute('data-tab-label', bloque.getAttribute('data-tab-demanda') || 'DESIGNACIÓN · EXPEDIENTE');
+  } else {
+    vDemanda.classList.add('hidden');
+    vContest.classList.remove('hidden');
+    bloque.classList.add('ficha-documento');
+    bloque.setAttribute('data-tab-label', bloque.getAttribute('data-tab-contestacion') || 'CONTESTACIÓN DE DEMANDA');
+  }
 }
 
 async function addNovedadDetail(){
