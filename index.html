@@ -327,7 +327,10 @@
       </div>
     </div>
     <div class="field"><label>Carátula / partes</label><input id="f-caratula" placeholder="Pérez, Juan c/ López, Ana s/ Daños y Perjuicios"></div>
-    <div class="field"><label>Juzgado / fuero</label><input id="f-juzgado" placeholder="Juzgado Civil y Comercial N° 4"></div>
+    <div class="field"><label>Juzgado / fuero</label>
+      <select id="f-juzgado"></select>
+      <input id="f-juzgado-otro" class="hidden mono" style="margin-top:8px;" placeholder="Escribí el juzgado/fuero completo">
+    </div>
     <div class="field">
       <label>Resumen del expediente (opcional)</label>
       <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — o generalo con el botón de arriba" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
@@ -372,6 +375,110 @@
 
 <script>
 const CONTADORES = ['Garate, Alejandra', 'Malzone, Roxana', 'Iogha, Romina', 'Giovanetti, Marcela', 'Cebrero, Luciana', 'Salvanhac, Daniela', 'Morettini, Gabriela', 'Mendiguren, María Marta'];
+
+const JUZGADOS_GRUPOS = [
+  { grupo: 'Cámaras', items: [
+    'Cámara Civil y Comercial - Presidencia',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 1ra',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 2da',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 3ra',
+    'Cámara de Apelación en lo Contencioso Administrativo',
+  ]},
+  { grupo: 'Juzgados Civil y Comercial', items: Array.from({length:16}, (_,i) => `Juzgado Civil y Comercial N° ${i+1}`) },
+  { grupo: 'Contencioso Administrativo', items: [
+    'Juzgado Contencioso Administrativo N° 1',
+    'Juzgado Contencioso Administrativo N° 2',
+  ]},
+  { grupo: 'Otros', items: ['Secretaria de Apremios'] },
+  { grupo: 'Tribunales de Trabajo', items: Array.from({length:5}, (_,i) => `Tribunal de Trabajo N° ${i+1}`) },
+];
+const JUZGADOS = JUZGADOS_GRUPOS.flatMap(g => g.items);
+
+function poblarSelectJuzgado(){
+  const sel = document.getElementById('f-juzgado');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Seleccionar…</option>' +
+    JUZGADOS_GRUPOS.map(g => `<optgroup label="${escapeHtml(g.grupo)}">${g.items.map(j => `<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join('')}</optgroup>`).join('') +
+    '<option value="__otro__">Otro / no está en la lista…</option>';
+}
+
+function normalizarTextoJuzgado(s){
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[°º.]/g,'').replace(/\s+/g,' ').trim();
+}
+
+// Interpreta texto libre (ej. "Trib. de Trabajo 2", "Juz. Civ y Com N°4") y busca la opción fija equivalente.
+function matchJuzgado(textoLibre){
+  if(!textoLibre) return '';
+  const t = normalizarTextoJuzgado(textoLibre);
+
+  const exacto = JUZGADOS.find(j => normalizarTextoJuzgado(j) === t);
+  if(exacto) return exacto;
+
+  const numMatch = t.match(/(\d+)/);
+  const numero = numMatch ? numMatch[1] : null;
+
+  const esCamara = /camara/.test(t);
+  const esTrabajo = /trabaj/.test(t);
+  const esContencioso = /contencios/.test(t);
+  const esApremio = /apremio/.test(t);
+  const esCivilComercial = /civ/.test(t) && /com/.test(t) && !esContencioso && !esTrabajo;
+  const esPresidencia = /presidencia/.test(t);
+  const salaMatch = t.match(/sala\s*(1ra|2da|3ra|primera|segunda|tercera|\d)/);
+
+  if(esApremio) return 'Secretaria de Apremios';
+
+  if(esCamara){
+    if(esContencioso) return 'Cámara de Apelación en lo Contencioso Administrativo';
+    if(esPresidencia && !salaMatch) return 'Cámara Civil y Comercial - Presidencia';
+    if(salaMatch){
+      const salaMap = {'1':'1ra','1ra':'1ra','primera':'1ra','2':'2da','2da':'2da','segunda':'2da','3':'3ra','3ra':'3ra','tercera':'3ra'};
+      const salaNum = salaMap[salaMatch[1]];
+      if(salaNum) return `Cámara de Apelación en lo Civil y Comercial - Sala ${salaNum}`;
+    }
+    return '';
+  }
+
+  if(numero){
+    let candidato = '';
+    if(esTrabajo) candidato = `Tribunal de Trabajo N° ${numero}`;
+    else if(esContencioso) candidato = `Juzgado Contencioso Administrativo N° ${numero}`;
+    else if(esCivilComercial) candidato = `Juzgado Civil y Comercial N° ${numero}`;
+    if(candidato){
+      const encontrado = JUZGADOS.find(j => normalizarTextoJuzgado(j) === normalizarTextoJuzgado(candidato));
+      if(encontrado) return encontrado;
+    }
+  }
+
+  return '';
+}
+
+function setJuzgadoValue(textoLibre){
+  const sel = document.getElementById('f-juzgado');
+  const otro = document.getElementById('f-juzgado-otro');
+  if(!sel || !otro) return;
+  const match = matchJuzgado(textoLibre);
+  if(match){
+    sel.value = match;
+    otro.value = '';
+    otro.classList.add('hidden');
+  } else if(textoLibre){
+    sel.value = '__otro__';
+    otro.value = textoLibre;
+    otro.classList.remove('hidden');
+  } else {
+    sel.value = '';
+    otro.value = '';
+    otro.classList.add('hidden');
+  }
+}
+
+function getJuzgadoValue(){
+  const sel = document.getElementById('f-juzgado');
+  if(!sel) return '';
+  if(sel.value === '__otro__') return document.getElementById('f-juzgado-otro').value.trim();
+  return sel.value;
+}
+
 const DATA_PATH = 'pericias.json';
 const CONFIG_FILE = 'config.enc.json';
 const SESSION_KEY = 'gh-pericias-session';
@@ -1124,7 +1231,7 @@ async function analizarConIA(){
     if(r.expediente) document.getElementById('f-expediente').value = r.expediente;
     if(r.contador) document.getElementById('f-contador').value = r.contador;
     if(r.caratula) document.getElementById('f-caratula').value = r.caratula;
-    if(r.juzgado) document.getElementById('f-juzgado').value = r.juzgado;
+    if(r.juzgado) setJuzgadoValue(r.juzgado);
     if(r.estado) document.getElementById('f-estado').value = r.estado;
     if(r.resumen) document.getElementById('f-resumen').value = r.resumen;
     if(Array.isArray(r.datos_clave) && r.datos_clave.length){
@@ -1371,7 +1478,7 @@ function openForm(id){
     document.getElementById('f-expediente').value = p.expediente || '';
     document.getElementById('f-contador').value = p.contador || '';
     document.getElementById('f-caratula').value = p.caratula || '';
-    document.getElementById('f-juzgado').value = p.juzgado || '';
+    setJuzgadoValue(p.juzgado || '');
     document.getElementById('f-resumen').value = p.resumen || '';
     document.getElementById('f-datos-clave').value = JSON.stringify(p.datos_clave || []);
     document.getElementById('f-puntos-periciales').value = JSON.stringify(p.puntos_periciales || []);
@@ -1386,7 +1493,7 @@ function openForm(id){
     document.getElementById('f-expediente').value = '';
     document.getElementById('f-contador').value = '';
     document.getElementById('f-caratula').value = '';
-    document.getElementById('f-juzgado').value = '';
+    setJuzgadoValue('');
     document.getElementById('f-resumen').value = '';
     document.getElementById('f-datos-clave').value = '[]';
     document.getElementById('f-puntos-periciales').value = '[]';
@@ -1410,7 +1517,7 @@ async function saveForm(){
   const expediente = document.getElementById('f-expediente').value.trim();
   const contador = document.getElementById('f-contador').value.trim();
   const caratula = document.getElementById('f-caratula').value.trim();
-  const juzgado = document.getElementById('f-juzgado').value.trim();
+  const juzgado = getJuzgadoValue();
   const resumen = document.getElementById('f-resumen').value.trim();
   let datosClave = [];
   try{ datosClave = JSON.parse(document.getElementById('f-datos-clave').value || '[]'); }catch(e){ datosClave = []; }
@@ -1533,6 +1640,18 @@ document.getElementById('buscar-input').addEventListener('keydown', (e) => { if(
 document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
 document.getElementById('btn-ai-analizar').addEventListener('click', analizarConIA);
 document.getElementById('btn-detail-ai-analizar').addEventListener('click', analizarNovedadConIA);
+poblarSelectJuzgado();
+document.getElementById('f-juzgado').addEventListener('change', () => {
+  const sel = document.getElementById('f-juzgado');
+  const otro = document.getElementById('f-juzgado-otro');
+  if(sel.value === '__otro__'){
+    otro.classList.remove('hidden');
+    otro.focus();
+  } else {
+    otro.classList.add('hidden');
+    otro.value = '';
+  }
+});
 window.addEventListener('hashchange', renderRoute);
 
 (async function init(){
