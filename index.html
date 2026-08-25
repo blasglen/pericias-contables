@@ -346,6 +346,8 @@
           <option>Observada / impugnada</option>
           <option>Contestación de impugnaciones</option>
           <option>Homologada / finalizada</option>
+          <option>Dictamen presentado pero no cobrada</option>
+          <option>Pericia Cobrada</option>
         </select>
       </div>
       <div class="field"><label>Próximo vencimiento</label><input id="f-vencimiento" type="date"></div>
@@ -495,6 +497,8 @@ const ESTADO_COLOR = {
   'Observada / impugnada': 'var(--alert)',
   'Contestación de impugnaciones': 'var(--warn)',
   'Homologada / finalizada': 'var(--folder-dark)',
+  'Dictamen presentado pero no cobrada': 'var(--warn)',
+  'Pericia Cobrada': 'var(--ok)',
 };
 const ESTADO_ABBR = {
   'Designada / aceptación pendiente': 'Designada',
@@ -504,6 +508,8 @@ const ESTADO_ABBR = {
   'Observada / impugnada': 'Observada',
   'Contestación de impugnaciones': 'Contest. impugnaciones',
   'Homologada / finalizada': 'Finalizada',
+  'Dictamen presentado pero no cobrada': 'Dictamen sin cobrar',
+  'Pericia Cobrada': 'Cobrada',
 };
 
 function uid(){ return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
@@ -747,13 +753,13 @@ function populateFilters(){
 
 function renderStats(){
   const total = pericias.length;
-  const vencidas = pericias.filter(p => p.estado !== 'Homologada / finalizada' && p.vencimiento && daysUntil(p.vencimiento) < 0).length;
-  const proximas = pericias.filter(p => p.estado !== 'Homologada / finalizada' && p.vencimiento && daysUntil(p.vencimiento) >= 0 && daysUntil(p.vencimiento) <= 7).length;
+  const sinCobrar = pericias.filter(p => p.estado === 'Dictamen presentado pero no cobrada').length;
+  const cobradas = pericias.filter(p => p.estado === 'Pericia Cobrada').length;
   const contadores = new Set(pericias.map(p => p.contador).filter(Boolean)).size;
   document.getElementById('stats').innerHTML = `
     <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">Pericias activas</div></div>
-    <div class="stat-card alert-stat"><div class="stat-num mono">${vencidas}</div><div class="stat-label">Vencidas</div></div>
-    <div class="stat-card warn-stat"><div class="stat-num mono">${proximas}</div><div class="stat-label">Vencen en 7 días</div></div>
+    <div class="stat-card warn-stat"><div class="stat-num mono">${sinCobrar}</div><div class="stat-label">Dictamen presentado pero no cobrada</div></div>
+    <div class="stat-card"><div class="stat-num mono" style="color:var(--ok);">${cobradas}</div><div class="stat-label">Pericia Cobrada</div></div>
     <div class="stat-card"><div class="stat-num mono">${contadores}</div><div class="stat-label">Contadores a cargo</div></div>
   `;
 }
