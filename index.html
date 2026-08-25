@@ -43,7 +43,7 @@
   .conn-error{background:#f2dede;color:var(--alert);border:1px solid #e3bcbc;}
   .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
 
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
   .stat-card{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:14px 16px;}
   .stat-num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--folder-dark);}
   .stat-label{font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--slate);text-transform:uppercase;margin-top:2px;}
@@ -755,12 +755,10 @@ function renderStats(){
   const total = pericias.length;
   const sinCobrar = pericias.filter(p => p.estado === 'Dictamen presentado pero no cobrada').length;
   const cobradas = pericias.filter(p => p.estado === 'Pericia Cobrada').length;
-  const contadores = new Set(pericias.map(p => p.contador).filter(Boolean)).size;
   document.getElementById('stats').innerHTML = `
     <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">Pericias activas</div></div>
     <div class="stat-card warn-stat"><div class="stat-num mono">${sinCobrar}</div><div class="stat-label">Dictamen presentado pero no cobrada</div></div>
     <div class="stat-card"><div class="stat-num mono" style="color:var(--ok);">${cobradas}</div><div class="stat-label">Pericia Cobrada</div></div>
-    <div class="stat-card"><div class="stat-num mono">${contadores}</div><div class="stat-label">Contadores a cargo</div></div>
   `;
 }
 
