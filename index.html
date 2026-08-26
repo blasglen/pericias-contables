@@ -131,6 +131,9 @@
   .puntos-list li{padding:6px 0 6px 4px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
   .puntos-list li:last-child{border-bottom:none;}
   .puntos-list li::marker{color:var(--brass);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .pericial-parte{border-left:2px solid var(--brass);padding-left:14px;margin-bottom:16px;}
+  .pericial-parte:last-child{margin-bottom:0;}
+  .pericial-parte-nombre{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;font-weight:600;}
   .pericial-sin{font-size:14px;color:var(--slate);font-style:italic;}
   .liq-table{width:100%;border-collapse:collapse;font-size:14px;}
   .liq-table td{padding:8px 4px;border-bottom:1px solid var(--paper-2);}
@@ -299,6 +302,8 @@
     <input type="hidden" id="f-id">
     <input type="hidden" id="f-datos-clave">
     <input type="hidden" id="f-puntos-periciales">
+    <input type="hidden" id="f-puntos-periciales-modo">
+    <input type="hidden" id="f-puntos-periciales-partes">
     <input type="hidden" id="f-postura-pericial">
     <input type="hidden" id="f-liquidacion">
 
@@ -911,17 +916,37 @@ function formatMonto(n){
   return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-function renderPuntosPericialesBloque(fuente, puntos, postura){
-  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+/* Arma el HTML interno de un bloque de puntos periciales. Si hay 2+ actores o
+   demandados que se presentaron POR SEPARADO (modo === 'separado'), se agrupan
+   los puntos contables bajo el nombre de cada parte en vez de mostrarlos como
+   una lista única. Si se presentaron en conjunto (o hay una sola parte), se usa
+   la lista plana de siempre. */
+function buildPuntosPericialesHtml(puntos, postura, modo, partes){
   const tienePostura = postura && postura.trim();
-  if(!tienePuntos && !tienePostura) return '';
+  if(tienePostura) return `<div class="pericial-sin">${escapeHtml(postura)}</div>`;
+
+  const tienePartes = modo === 'separado' && Array.isArray(partes) && partes.some(g => Array.isArray(g.puntos) && g.puntos.length);
+  if(tienePartes){
+    return partes.filter(g => Array.isArray(g.puntos) && g.puntos.length).map(g => `
+      <div class="pericial-parte">
+        <div class="pericial-parte-nombre">${escapeHtml(g.parte || 'Parte sin nombre')}</div>
+        <ol class="puntos-list">${g.puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>
+      </div>`).join('');
+  }
+
+  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+  if(tienePuntos) return `<ol class="puntos-list">${puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>`;
+
+  return '';
+}
+
+function renderPuntosPericialesBloque(fuente, puntos, postura, modo, partes){
+  const cuerpo = buildPuntosPericialesHtml(puntos, postura, modo, partes);
+  if(!cuerpo) return '';
   return `
     <div class="pericial-bloque">
       <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
-      ${tienePostura
-        ? `<div class="pericial-sin">${escapeHtml(postura)}</div>`
-        : `<ol class="puntos-list">${puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>`
-      }
+      ${cuerpo}
     </div>`;
 }
 
@@ -943,10 +968,10 @@ function renderLiquidacionBloque(fuente, liquidacion, origen, periciaId){
 
 function renderPericial(p){
   const bloques = [];
-  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial));
+  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial, p.puntos_periciales_modo, p.puntos_periciales_partes));
   bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion, 'demanda', p.id));
   (p.documentos || []).forEach(doc => {
-    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial));
+    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial, doc.puntos_periciales_modo, doc.puntos_periciales_partes));
     bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion, doc.id, p.id));
   });
   const contenido = bloques.filter(Boolean).join('');
@@ -1258,6 +1283,10 @@ async function analizarConIA(){
     if(Array.isArray(r.puntos_periciales) && r.puntos_periciales.length){
       document.getElementById('f-puntos-periciales').value = JSON.stringify(r.puntos_periciales);
     }
+    if(r.puntos_periciales_modo === 'separado' && Array.isArray(r.puntos_periciales_partes) && r.puntos_periciales_partes.length){
+      document.getElementById('f-puntos-periciales-modo').value = 'separado';
+      document.getElementById('f-puntos-periciales-partes').value = JSON.stringify(r.puntos_periciales_partes);
+    }
     if(r.postura_pericial){
       document.getElementById('f-postura-pericial').value = r.postura_pericial;
     }
@@ -1329,6 +1358,8 @@ async function analizarNovedadConIA(){
         fecha: r.fecha || new Date().toISOString().slice(0,10),
         datos_clave: Array.isArray(r.datos_clave) ? r.datos_clave : [],
         puntos_periciales: Array.isArray(r.puntos_periciales) ? r.puntos_periciales : [],
+        puntos_periciales_modo: r.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto',
+        puntos_periciales_partes: (r.puntos_periciales_modo === 'separado' && Array.isArray(r.puntos_periciales_partes)) ? r.puntos_periciales_partes : [],
         postura_pericial: r.postura_pericial || '',
         liquidacion: Array.isArray(r.liquidacion) ? r.liquidacion : [],
         resumen: r.resumen || ''
@@ -1364,7 +1395,12 @@ function renderAiPreview(){
     <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:8px;">${escapeHtml(d.tipo_documento)} · ${fmtDate(d.fecha)}</div>
     ${renderDatosClaveGrid(d.datos_clave)}
     <div style="font-size:14px;line-height:1.5;margin-top:10px;">${escapeHtml(d.resumen)}</div>
-    ${d.postura_pericial ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Postura sobre la prueba pericial</span><div class="pericial-sin">${escapeHtml(d.postura_pericial)}</div></div>` : (d.puntos_periciales && d.puntos_periciales.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Puntos periciales detectados</span><ol class="puntos-list">${d.puntos_periciales.map(pt=>`<li>${escapeHtml(pt)}</li>`).join('')}</ol></div>` : '')}
+    ${(function(){
+      const html = buildPuntosPericialesHtml(d.puntos_periciales, d.postura_pericial, d.puntos_periciales_modo, d.puntos_periciales_partes);
+      if(!html) return '';
+      const etiqueta = d.postura_pericial ? 'Postura sobre la prueba pericial' : 'Puntos periciales detectados';
+      return `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">${etiqueta}</span>${html}</div>`;
+    })()}
     ${d.liquidacion && d.liquidacion.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Liquidación detectada</span><table class="liq-table">${d.liquidacion.map(r=>`<tr><td>${escapeHtml(r.rubro||'')}</td><td>${escapeHtml(r.monto||'')}</td></tr>`).join('')}</table></div>` : ''}
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-brass btn-small" onclick="confirmarDocumentoPrincipal()">Agregar como documento principal</button>
@@ -1500,6 +1536,8 @@ function openForm(id){
     document.getElementById('f-resumen').value = p.resumen || '';
     document.getElementById('f-datos-clave').value = JSON.stringify(p.datos_clave || []);
     document.getElementById('f-puntos-periciales').value = JSON.stringify(p.puntos_periciales || []);
+    document.getElementById('f-puntos-periciales-modo').value = p.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+    document.getElementById('f-puntos-periciales-partes').value = JSON.stringify(p.puntos_periciales_partes || []);
     document.getElementById('f-postura-pericial').value = p.postura_pericial || '';
     document.getElementById('f-liquidacion').value = JSON.stringify(p.liquidacion || []);
     document.getElementById('f-estado').value = p.estado;
@@ -1515,6 +1553,8 @@ function openForm(id){
     document.getElementById('f-resumen').value = '';
     document.getElementById('f-datos-clave').value = '[]';
     document.getElementById('f-puntos-periciales').value = '[]';
+    document.getElementById('f-puntos-periciales-modo').value = 'conjunto';
+    document.getElementById('f-puntos-periciales-partes').value = '[]';
     document.getElementById('f-postura-pericial').value = '';
     document.getElementById('f-liquidacion').value = '[]';
     document.getElementById('f-estado').value = 'Designada / aceptación pendiente';
@@ -1541,6 +1581,9 @@ async function saveForm(){
   try{ datosClave = JSON.parse(document.getElementById('f-datos-clave').value || '[]'); }catch(e){ datosClave = []; }
   let puntosPericiales = [];
   try{ puntosPericiales = JSON.parse(document.getElementById('f-puntos-periciales').value || '[]'); }catch(e){ puntosPericiales = []; }
+  const puntosPericialesModo = document.getElementById('f-puntos-periciales-modo').value === 'separado' ? 'separado' : 'conjunto';
+  let puntosPericialesPartes = [];
+  try{ puntosPericialesPartes = JSON.parse(document.getElementById('f-puntos-periciales-partes').value || '[]'); }catch(e){ puntosPericialesPartes = []; }
   const posturaPericial = document.getElementById('f-postura-pericial').value.trim();
   let liquidacion = [];
   try{ liquidacion = JSON.parse(document.getElementById('f-liquidacion').value || '[]'); }catch(e){ liquidacion = []; }
@@ -1551,10 +1594,10 @@ async function saveForm(){
   let message;
   if(id){
     const p = pericias.find(x => x.id === id);
-    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, postura_pericial: posturaPericial, liquidacion, estado, vencimiento });
+    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, puntos_periciales_modo: puntosPericialesModo, puntos_periciales_partes: puntosPericialesPartes, postura_pericial: posturaPericial, liquidacion, estado, vencimiento });
     message = `Actualiza pericia expte. ${expediente || id}`;
   } else {
-    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, postura_pericial: posturaPericial, liquidacion, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [], documentos: [] });
+    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, puntos_periciales_modo: puntosPericialesModo, puntos_periciales_partes: puntosPericialesPartes, postura_pericial: posturaPericial, liquidacion, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [], documentos: [] });
     message = `Nueva pericia expte. ${expediente || 's/n°'}`;
   }
   renderAll();
