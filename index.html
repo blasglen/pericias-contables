@@ -128,12 +128,16 @@
   .pericial-bloque h3{margin:0 0 14px;font-size:16px;color:var(--folder-dark);font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;}
   .pericial-bloque h3 .fuente{color:var(--brass);}
   .puntos-list{list-style:decimal;margin:0;padding-left:22px;counter-reset:none;}
-  .puntos-list li{padding:6px 0 6px 4px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
+  .puntos-list li{padding:10px 0 16px 4px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
   .puntos-list li:last-child{border-bottom:none;}
   .puntos-list li::marker{color:var(--brass);font-family:'IBM Plex Mono',monospace;font-weight:600;}
   .pericial-parte{border-left:2px solid var(--brass);padding-left:14px;margin-bottom:16px;}
   .pericial-parte:last-child{margin-bottom:0;}
   .pericial-parte-nombre{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;font-weight:600;}
+  .puntos-acciones{display:flex;gap:8px;margin:-4px 0 14px;flex-wrap:wrap;}
+  .punto-texto{margin-bottom:8px;}
+  .respuesta-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin-bottom:4px;}
+  .respuesta-ia{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:13.5px;background:var(--paper);resize:vertical;min-height:48px;}
   .pericial-sin{font-size:14px;color:var(--slate);font-style:italic;}
   .liq-table{width:100%;border-collapse:collapse;font-size:14px;}
   .liq-table td{padding:8px 4px;border-bottom:1px solid var(--paper-2);}
@@ -916,11 +920,32 @@ function formatMonto(n){
   return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-/* Arma el HTML interno de un bloque de puntos periciales. Si hay 2+ actores o
-   demandados que se presentaron POR SEPARADO (modo === 'separado'), se agrupan
-   los puntos contables bajo el nombre de cada parte en vez de mostrarlos como
-   una lista única. Si se presentaron en conjunto (o hay una sola parte), se usa
-   la lista plana de siempre. */
+function renderPuntoConRespuesta(texto, respuesta, periciaId, origen, parteIdx, puntoIdx){
+  return `
+    <li>
+      <div class="punto-texto">${escapeHtml(texto)}</div>
+      <div class="respuesta-label">Borrador de respuesta (editable)</div>
+      <textarea class="respuesta-ia" rows="2" placeholder="Se completa con &quot;Resolver puntos con IA&quot; o se puede escribir a mano…" onblur="guardarRespuestaPunto('${periciaId}','${origen}',${parteIdx},${puntoIdx},this.value)">${escapeHtml(respuesta || '')}</textarea>
+    </li>`;
+}
+
+function renderAccionesPuntos(periciaId, origen){
+  return `
+    <div class="puntos-acciones">
+      <button class="btn btn-ghost btn-small" type="button" onclick="toggleResolverIA('${origen}')">Resolver puntos con IA</button>
+      <button class="btn btn-ghost btn-small" type="button" id="btn-copiar-${origen}" onclick="copiarBorradorPuntos('${periciaId}','${origen}')">Copiar borrador</button>
+    </div>
+    <div class="ai-box hidden" id="resolver-panel-${origen}" style="margin:10px 0 16px;">
+      <label>Documentación contable (podés elegir varios archivos: libros, balances, facturas, extractos)</label>
+      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv">
+      <button class="btn btn-ghost btn-small" type="button" id="btn-resolver-${origen}" onclick="resolverPuntosConIA('${periciaId}','${origen}')" style="margin-left:8px;">Analizar y resolver</button>
+      <div id="resolver-status-${origen}" class="hint" style="margin-top:6px;"></div>
+    </div>`;
+}
+
+/* Arma el HTML interno de un bloque de puntos periciales, SIN acciones ni
+   respuestas editables — se usa en la vista previa de IA antes de confirmar
+   un documento, cuando todavía no existe periciaId/origen para guardar nada. */
 function buildPuntosPericialesHtml(puntos, postura, modo, partes){
   const tienePostura = postura && postura.trim();
   if(tienePostura) return `<div class="pericial-sin">${escapeHtml(postura)}</div>`;
@@ -940,12 +965,38 @@ function buildPuntosPericialesHtml(puntos, postura, modo, partes){
   return '';
 }
 
-function renderPuntosPericialesBloque(fuente, puntos, postura, modo, partes){
-  const cuerpo = buildPuntosPericialesHtml(puntos, postura, modo, partes);
-  if(!cuerpo) return '';
+/* Bloque real de "Puntos periciales" en la vista Pericial Contable: incluye el
+   botón "Resolver puntos con IA" (analiza documentación contable subida y
+   redacta un borrador de respuesta para cada punto), el botón para copiar el
+   borrador completo, y cada punto con su respuesta editable a mano. */
+function renderPuntosPericialesBloque(fuente, puntos, postura, modo, partes, respuestasFlat, periciaId, origen){
+  const tienePostura = postura && postura.trim();
+  const tienePartes = modo === 'separado' && Array.isArray(partes) && partes.some(g => Array.isArray(g.puntos) && g.puntos.length);
+  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+  if(!tienePostura && !tienePartes && !tienePuntos) return '';
+
+  let cuerpo, acciones = '';
+  if(tienePostura){
+    cuerpo = `<div class="pericial-sin">${escapeHtml(postura)}</div>`;
+  } else if(tienePartes){
+    cuerpo = partes.map((g, gi) => {
+      if(!Array.isArray(g.puntos) || !g.puntos.length) return '';
+      return `
+        <div class="pericial-parte">
+          <div class="pericial-parte-nombre">${escapeHtml(g.parte || 'Parte sin nombre')}</div>
+          <ol class="puntos-list">${g.puntos.map((pt, pi) => renderPuntoConRespuesta(pt, g.respuestas && g.respuestas[pi], periciaId, origen, gi, pi)).join('')}</ol>
+        </div>`;
+    }).join('');
+    acciones = renderAccionesPuntos(periciaId, origen);
+  } else {
+    cuerpo = `<ol class="puntos-list">${puntos.map((pt, pi) => renderPuntoConRespuesta(pt, respuestasFlat && respuestasFlat[pi], periciaId, origen, -1, pi)).join('')}</ol>`;
+    acciones = renderAccionesPuntos(periciaId, origen);
+  }
+
   return `
     <div class="pericial-bloque">
       <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
+      ${acciones}
       ${cuerpo}
     </div>`;
 }
@@ -968,10 +1019,10 @@ function renderLiquidacionBloque(fuente, liquidacion, origen, periciaId){
 
 function renderPericial(p){
   const bloques = [];
-  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial, p.puntos_periciales_modo, p.puntos_periciales_partes));
+  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial, p.puntos_periciales_modo, p.puntos_periciales_partes, p.puntos_periciales_respuestas, p.id, 'demanda'));
   bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion, 'demanda', p.id));
   (p.documentos || []).forEach(doc => {
-    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial, doc.puntos_periciales_modo, doc.puntos_periciales_partes));
+    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial, doc.puntos_periciales_modo, doc.puntos_periciales_partes, doc.puntos_periciales_respuestas, p.id, doc.id));
     bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion, doc.id, p.id));
   });
   const contenido = bloques.filter(Boolean).join('');
@@ -1221,6 +1272,145 @@ function fileToBase64(file){
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+/* ---------- Resolver puntos periciales con IA (a partir de documentación contable) ---------- */
+function toggleResolverIA(origen){
+  const panel = document.getElementById('resolver-panel-' + origen);
+  if(panel) panel.classList.toggle('hidden');
+}
+
+async function guardarRespuestaPunto(periciaId, origen, parteIdx, puntoIdx, valor){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+  if(parteIdx === -1){
+    if(!Array.isArray(target.puntos_periciales_respuestas)) target.puntos_periciales_respuestas = [];
+    target.puntos_periciales_respuestas[puntoIdx] = valor;
+  } else {
+    if(!Array.isArray(target.puntos_periciales_partes) || !target.puntos_periciales_partes[parteIdx]) return;
+    const grupo = target.puntos_periciales_partes[parteIdx];
+    if(!Array.isArray(grupo.respuestas)) grupo.respuestas = [];
+    grupo.respuestas[puntoIdx] = valor;
+  }
+  await persist(`Actualiza borrador de respuesta pericial en expte. ${p.expediente || p.id}`);
+}
+
+function copiarBorradorPuntos(periciaId, origen){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+
+  const modo = target.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+  let texto = '';
+  if(modo === 'separado' && Array.isArray(target.puntos_periciales_partes)){
+    target.puntos_periciales_partes.forEach(g => {
+      const nombre = g.parte || 'Parte';
+      texto += `${nombre}\n${'-'.repeat(nombre.length)}\n\n`;
+      (g.puntos || []).forEach((pt, i) => {
+        texto += `${i + 1}. ${pt}\nRespuesta: ${(g.respuestas && g.respuestas[i]) || '(sin resolver)'}\n\n`;
+      });
+      texto += '\n';
+    });
+  } else {
+    (target.puntos_periciales || []).forEach((pt, i) => {
+      texto += `${i + 1}. ${pt}\nRespuesta: ${(target.puntos_periciales_respuestas && target.puntos_periciales_respuestas[i]) || '(sin resolver)'}\n\n`;
+    });
+  }
+
+  const btn = document.getElementById('btn-copiar-' + origen);
+  navigator.clipboard.writeText(texto.trim()).then(() => {
+    if(btn){ const orig = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  }).catch(() => {
+    alert('No se pudo copiar automáticamente. Seleccioná el texto a mano.');
+  });
+}
+
+async function resolverPuntosConIA(periciaId, origen){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+
+  const statusDiv = document.getElementById('resolver-status-' + origen);
+  const btn = document.getElementById('btn-resolver-' + origen);
+  const fileInput = document.getElementById('resolver-archivos-' + origen);
+  const files = Array.from((fileInput && fileInput.files) || []);
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA.';
+    return;
+  }
+  if(!files.length){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Elegí al menos un archivo (libros, balances, facturas, extractos).';
+    return;
+  }
+
+  const modo = target.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+  const puntosPayload = modo === 'separado'
+    ? (target.puntos_periciales_partes || []).map(g => ({ parte: g.parte, puntos: g.puntos || [] }))
+    : (target.puntos_periciales || []);
+  const hayPuntos = modo === 'separado' ? puntosPayload.some(g => g.puntos.length) : puntosPayload.length > 0;
+  if(!hayPuntos){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'No hay puntos periciales cargados para resolver.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.style.color = 'var(--slate)';
+  statusDiv.textContent = 'Leyendo archivos…';
+
+  let archivos;
+  try{
+    archivos = await Promise.all(files.map(async f => ({
+      base64: await fileToBase64(f),
+      mediaType: f.type || 'application/octet-stream',
+      nombre: f.name
+    })));
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'No se pudo leer alguno de los archivos.';
+    btn.disabled = false;
+    return;
+  }
+
+  statusDiv.textContent = 'Analizando documentación contable con IA… puede tardar un momento.';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify({ mode: 'resolver_puntos', puntos_periciales_modo: modo, puntos: puntosPayload, archivos })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo resolver (' + (data.error || res.status) + '). Revisá el Worker.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    if(modo === 'separado'){
+      if(Array.isArray(r.partes)){
+        target.puntos_periciales_partes = (target.puntos_periciales_partes || []).map((g, i) => ({
+          ...g,
+          respuestas: (r.partes[i] && Array.isArray(r.partes[i].respuestas)) ? r.partes[i].respuestas : (g.respuestas || [])
+        }));
+      }
+    } else if(Array.isArray(r.respuestas)){
+      target.puntos_periciales_respuestas = r.respuestas;
+    }
+    await persist(`Resuelve puntos periciales con IA en expte. ${p.expediente || p.id}`);
+    renderPericial(p);
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+    btn.disabled = false;
+  }
 }
 
 async function analizarConIA(){
