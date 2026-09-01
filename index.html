@@ -288,7 +288,10 @@
 
   <!-- VISTA: pericial contable (puntos periciales + liquidaciones, agregadas de todos los documentos) -->
   <div id="view-pericial" class="hidden">
-    <button class="btn btn-ghost btn-small" id="btn-volver-detalle" style="margin-bottom:18px;">← Volver al expediente</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+      <button class="btn btn-ghost btn-small" id="btn-volver-detalle">← Volver al expediente</button>
+      <button class="btn btn-ghost btn-small" id="btn-toggle-resolver-ia" type="button" onclick="toggleModoResolverIA()">🤖 Resolver con IA</button>
+    </div>
     <div id="pericial-content"></div>
   </div>
 
@@ -496,6 +499,7 @@ const DATA_PATH = 'pericias.json';
 const CONFIG_FILE = 'config.enc.json';
 const SESSION_KEY = 'gh-pericias-session';
 let pericias = [];
+let modoResolverIA = false; // false = vista simple de puntos periciales (como antes); true = modo edición con IA
 let currentSha = null;
 let config = null; // { owner, repo, branch, token } — solo en memoria/sessionStorage, nunca en disco
 let saving = false;
@@ -894,6 +898,9 @@ function renderRoute(){
     if(!p){ location.hash = ''; return; }
     todas.forEach(v => v.classList.add('hidden'));
     viewPericial.classList.remove('hidden');
+    modoResolverIA = false;
+    const btnToggle = document.getElementById('btn-toggle-resolver-ia');
+    if(btnToggle) btnToggle.textContent = '🤖 Resolver con IA';
     renderPericial(p);
   } else if(route.view === 'detail'){
     const p = pericias.find(x => x.id === route.id);
@@ -974,6 +981,17 @@ function renderPuntosPericialesBloque(fuente, puntos, postura, modo, partes, res
   const tienePartes = modo === 'separado' && Array.isArray(partes) && partes.some(g => Array.isArray(g.puntos) && g.puntos.length);
   const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
   if(!tienePostura && !tienePartes && !tienePuntos) return '';
+
+  if(!modoResolverIA){
+    // Vista simple, tal como estaba antes: solo la lista de puntos, sin acciones ni respuestas editables.
+    const cuerpoSimple = buildPuntosPericialesHtml(puntos, postura, modo, partes);
+    if(!cuerpoSimple) return '';
+    return `
+      <div class="pericial-bloque">
+        <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
+        ${cuerpoSimple}
+      </div>`;
+  }
 
   let cuerpo, acciones = '';
   if(tienePostura){
@@ -1275,6 +1293,15 @@ function fileToBase64(file){
 }
 
 /* ---------- Resolver puntos periciales con IA (a partir de documentación contable) ---------- */
+function toggleModoResolverIA(){
+  modoResolverIA = !modoResolverIA;
+  const btn = document.getElementById('btn-toggle-resolver-ia');
+  if(btn) btn.textContent = modoResolverIA ? '✕ Cerrar resolver con IA' : '🤖 Resolver con IA';
+  const route = currentRoute();
+  const p = pericias.find(x => x.id === route.id);
+  if(p) renderPericial(p);
+}
+
 function toggleResolverIA(origen){
   const panel = document.getElementById('resolver-panel-' + origen);
   if(panel) panel.classList.toggle('hidden');
