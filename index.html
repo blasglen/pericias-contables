@@ -944,8 +944,9 @@ function renderAccionesPuntos(periciaId, origen){
     </div>
     <div class="ai-box hidden" id="resolver-panel-${origen}" style="margin:10px 0 16px;">
       <label>Documentación contable (podés elegir varios archivos: libros, balances, facturas, extractos)</label>
-      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv">
+      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv" onchange="mostrarTamanoArchivos('${origen}')">
       <button class="btn btn-ghost btn-small" type="button" id="btn-resolver-${origen}" onclick="resolverPuntosConIA('${periciaId}','${origen}')" style="margin-left:8px;">Analizar y resolver</button>
+      <div id="resolver-tamano-${origen}" class="hint" style="margin-top:6px;"></div>
       <div id="resolver-status-${origen}" class="hint" style="margin-top:6px;"></div>
     </div>`;
 }
@@ -1307,6 +1308,29 @@ function toggleResolverIA(origen){
   if(panel) panel.classList.toggle('hidden');
 }
 
+function mostrarTamanoArchivos(origen){
+  const fileInput = document.getElementById('resolver-archivos-' + origen);
+  const tamanoDiv = document.getElementById('resolver-tamano-' + origen);
+  if(!fileInput || !tamanoDiv) return;
+  const files = Array.from(fileInput.files || []);
+  if(!files.length){ tamanoDiv.textContent = ''; return; }
+
+  const totalMB = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
+  const cantidad = files.length + (files.length === 1 ? ' archivo' : ' archivos');
+  let mensaje = `${cantidad} seleccionados · ${totalMB.toFixed(1)} MB en total`;
+
+  if(totalMB > 24){
+    tamanoDiv.style.color = 'var(--alert)';
+    mensaje += ' — es demasiado, es muy probable que falle el análisis ("request too large"). Sacá algún archivo o comprimí los PDFs.';
+  } else if(totalMB > 15){
+    tamanoDiv.style.color = 'var(--brass-dark)';
+    mensaje += ' — se está acercando al límite. Si el análisis falla, sacá algún archivo.';
+  } else {
+    tamanoDiv.style.color = 'var(--slate)';
+  }
+  tamanoDiv.textContent = mensaje;
+}
+
 async function guardarRespuestaPunto(periciaId, origen, parteIdx, puntoIdx, valor){
   const p = pericias.find(x => x.id === periciaId);
   if(!p) return;
@@ -1421,15 +1445,22 @@ async function resolverPuntosConIA(periciaId, origen){
       return;
     }
     const r = data.result;
+    /* Merge punto por punto: si en esta vuelta la IA no trae una respuesta nueva
+       para un punto (porque los archivos subidos ahora no lo cubren), se conserva
+       lo que ya estaba guardado de una vuelta anterior o cargado a mano — nunca
+       se borra por venir vacío. Solo se pisa cuando llega texto nuevo real. */
     if(modo === 'separado'){
       if(Array.isArray(r.partes)){
-        target.puntos_periciales_partes = (target.puntos_periciales_partes || []).map((g, i) => ({
-          ...g,
-          respuestas: (r.partes[i] && Array.isArray(r.partes[i].respuestas)) ? r.partes[i].respuestas : (g.respuestas || [])
-        }));
+        target.puntos_periciales_partes = (target.puntos_periciales_partes || []).map((g, i) => {
+          const nuevas = (r.partes[i] && Array.isArray(r.partes[i].respuestas)) ? r.partes[i].respuestas : null;
+          if(!nuevas) return g;
+          const anteriores = Array.isArray(g.respuestas) ? g.respuestas : [];
+          return { ...g, respuestas: nuevas.map((val, pi) => ((val || '').trim() ? val : (anteriores[pi] || ''))) };
+        });
       }
     } else if(Array.isArray(r.respuestas)){
-      target.puntos_periciales_respuestas = r.respuestas;
+      const anteriores = Array.isArray(target.puntos_periciales_respuestas) ? target.puntos_periciales_respuestas : [];
+      target.puntos_periciales_respuestas = r.respuestas.map((val, i) => ((val || '').trim() ? val : (anteriores[i] || '')));
     }
     await persist(`Resuelve puntos periciales con IA en expte. ${p.expediente || p.id}`);
     renderPericial(p);
