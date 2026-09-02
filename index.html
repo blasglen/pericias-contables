@@ -151,6 +151,14 @@
   .calculo-item .detalle{margin-top:8px;font-size:14px;line-height:1.5;color:var(--ink);}
   .calculo-item .sin-detalle{margin-top:8px;font-size:13px;color:var(--slate);font-style:italic;}
   .pericial-empty{color:var(--slate);font-style:italic;font-size:14px;}
+  .archivo-chip{display:inline-flex;align-items:center;gap:6px;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:4px 6px 4px 12px;margin:0 6px 6px 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--folder-dark);}
+  .archivo-chip .archivo-tam{color:var(--slate);}
+  .archivo-chip button{background:var(--white-ish);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;color:var(--alert);font-size:12px;padding:0;}
+  .archivo-chip button:hover{background:var(--alert);color:var(--white-ish);}
+  .archivos-resumen{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate);margin-bottom:6px;}
+  .archivos-resumen.archivos-alerta{color:var(--alert);}
+  .archivos-resumen.archivos-warn{color:var(--brass-dark);}
+  .btn-vaciar-archivos{background:none;border:none;color:var(--slate);text-decoration:underline;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:8px;}
   .ficha-madre-actions{display:flex;gap:8px;margin-top:16px;}
 
   .doc-toggle{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:var(--brass);color:var(--white-ish);border:2px solid var(--white-ish);cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.22);z-index:2;transition:background .12s ease,transform .12s ease;}
@@ -943,10 +951,10 @@ function renderAccionesPuntos(periciaId, origen){
       <button class="btn btn-ghost btn-small" type="button" id="btn-copiar-${origen}" onclick="copiarBorradorPuntos('${periciaId}','${origen}')">Copiar borrador</button>
     </div>
     <div class="ai-box hidden" id="resolver-panel-${origen}" style="margin:10px 0 16px;">
-      <label>Documentación contable (podés elegir varios archivos: libros, balances, facturas, extractos)</label>
-      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv" onchange="mostrarTamanoArchivos('${origen}')">
+      <label>Documentación contable (elegí archivos de a uno o varios — se van sumando, no se pisan)</label>
+      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv" onchange="agregarArchivosAcumulados('${periciaId}','${origen}')">
       <button class="btn btn-ghost btn-small" type="button" id="btn-resolver-${origen}" onclick="resolverPuntosConIA('${periciaId}','${origen}')" style="margin-left:8px;">Analizar y resolver</button>
-      <div id="resolver-tamano-${origen}" class="hint" style="margin-top:6px;"></div>
+      <div id="resolver-lista-${origen}" style="margin-top:8px;"></div>
       <div id="resolver-status-${origen}" class="hint" style="margin-top:6px;"></div>
     </div>`;
 }
@@ -1308,27 +1316,80 @@ function toggleResolverIA(origen){
   if(panel) panel.classList.toggle('hidden');
 }
 
-function mostrarTamanoArchivos(origen){
+// Acumula archivos elegidos entre distintas aperturas del selector, en vez de que
+// el navegador reemplace la selección anterior por la nueva (comportamiento nativo
+// de <input type="file">). Se guarda una lista por pericia+origen.
+const archivosAcumulados = {};
+function claveArchivos(periciaId, origen){ return periciaId + '::' + origen; }
+
+function agregarArchivosAcumulados(periciaId, origen){
   const fileInput = document.getElementById('resolver-archivos-' + origen);
-  const tamanoDiv = document.getElementById('resolver-tamano-' + origen);
-  if(!fileInput || !tamanoDiv) return;
-  const files = Array.from(fileInput.files || []);
-  if(!files.length){ tamanoDiv.textContent = ''; return; }
+  if(!fileInput) return;
+  const clave = claveArchivos(periciaId, origen);
+  if(!archivosAcumulados[clave]) archivosAcumulados[clave] = [];
+
+  const nuevos = Array.from(fileInput.files || []);
+  nuevos.forEach(f => {
+    const yaEsta = archivosAcumulados[clave].some(existente =>
+      existente.name === f.name && existente.size === f.size && existente.lastModified === f.lastModified
+    );
+    if(!yaEsta) archivosAcumulados[clave].push(f);
+  });
+
+  fileInput.value = ''; // limpia el input nativo para que la próxima elección no reemplace nada
+  renderListaArchivos(periciaId, origen);
+}
+
+function eliminarArchivoAcumulado(periciaId, origen, idx){
+  const clave = claveArchivos(periciaId, origen);
+  if(!archivosAcumulados[clave]) return;
+  archivosAcumulados[clave].splice(idx, 1);
+  renderListaArchivos(periciaId, origen);
+}
+
+function vaciarArchivosAcumulados(periciaId, origen){
+  const clave = claveArchivos(periciaId, origen);
+  archivosAcumulados[clave] = [];
+  renderListaArchivos(periciaId, origen);
+}
+
+function formatearTamano(bytes){
+  const mb = bytes / (1024 * 1024);
+  if(mb < 0.1) return (bytes / 1024).toFixed(0) + ' KB';
+  return mb.toFixed(1) + ' MB';
+}
+
+function renderListaArchivos(periciaId, origen){
+  const contenedor = document.getElementById('resolver-lista-' + origen);
+  if(!contenedor) return;
+  const clave = claveArchivos(periciaId, origen);
+  const files = archivosAcumulados[clave] || [];
+
+  if(!files.length){ contenedor.innerHTML = ''; return; }
 
   const totalMB = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
   const cantidad = files.length + (files.length === 1 ? ' archivo' : ' archivos');
-  let mensaje = `${cantidad} seleccionados · ${totalMB.toFixed(1)} MB en total`;
-
+  let claseResumen = 'archivos-resumen';
+  let avisoExtra = '';
   if(totalMB > 24){
-    tamanoDiv.style.color = 'var(--alert)';
-    mensaje += ' — es demasiado, es muy probable que falle el análisis ("request too large"). Sacá algún archivo o comprimí los PDFs.';
+    claseResumen += ' archivos-alerta';
+    avisoExtra = ' — es demasiado, es muy probable que falle el análisis ("request too large"). Sacá algún archivo o comprimí los PDFs.';
   } else if(totalMB > 15){
-    tamanoDiv.style.color = 'var(--brass-dark)';
-    mensaje += ' — se está acercando al límite. Si el análisis falla, sacá algún archivo.';
-  } else {
-    tamanoDiv.style.color = 'var(--slate)';
+    claseResumen += ' archivos-warn';
+    avisoExtra = ' — se está acercando al límite. Si el análisis falla, sacá algún archivo.';
   }
-  tamanoDiv.textContent = mensaje;
+
+  const chips = files.map((f, idx) => `
+    <span class="archivo-chip">
+      ${escapeHtml(f.name)} <span class="archivo-tam">(${formatearTamano(f.size)})</span>
+      <button type="button" title="Sacar este archivo" onclick="eliminarArchivoAcumulado('${periciaId}','${origen}',${idx})">✕</button>
+    </span>`).join('');
+
+  contenedor.innerHTML = `
+    <div class="${claseResumen}">${cantidad} seleccionados · ${totalMB.toFixed(1)} MB en total${avisoExtra}
+      <button type="button" class="btn-vaciar-archivos" onclick="vaciarArchivosAcumulados('${periciaId}','${origen}')">Vaciar todo</button>
+    </div>
+    <div>${chips}</div>`;
 }
 
 async function guardarRespuestaPunto(periciaId, origen, parteIdx, puntoIdx, valor){
@@ -1387,8 +1448,7 @@ async function resolverPuntosConIA(periciaId, origen){
 
   const statusDiv = document.getElementById('resolver-status-' + origen);
   const btn = document.getElementById('btn-resolver-' + origen);
-  const fileInput = document.getElementById('resolver-archivos-' + origen);
-  const files = Array.from((fileInput && fileInput.files) || []);
+  const files = archivosAcumulados[claveArchivos(periciaId, origen)] || [];
 
   if(!config || !config.workerUrl || !config.workerKey){
     statusDiv.style.color = 'var(--alert)';
