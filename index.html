@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro de Pericias Contables</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#243329">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pericias">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -207,6 +215,12 @@
     .stats{grid-template-columns:1fr 1fr;}
     .stamp{display:none;}
   }
+  /* Sincronización entre compus */
+  #sync-pill{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--folder-dark);color:var(--white-ish);border:none;border-radius:999px;padding:10px 18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:60;max-width:calc(100% - 32px);}
+  #sync-pill.hidden{display:none;}
+  #sync-pill .sync-accion{color:var(--brass);font-weight:600;margin-left:8px;text-decoration:underline;}
+  #sync-toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ok);color:#fff;border-radius:999px;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:61;opacity:0;pointer-events:none;transition:opacity .25s ease;}
+  #sync-toast.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -381,6 +395,9 @@
   </div>
 </div>
 
+<button id="sync-pill" class="hidden" type="button" onclick="aplicarCambiosRemotos(true)">🔄 Hay cambios nuevos de otra compu<span class="sync-accion">Actualizar</span></button>
+<div id="sync-toast"></div>
+
 <!-- PANTALLA: ingreso de PIN (gate de sesión, pantalla completa) -->
 <div id="config-overlay" class="hidden">
   <div class="modal-box login-box">
@@ -509,6 +526,7 @@ const SESSION_KEY = 'gh-pericias-session';
 let pericias = [];
 let modoResolverIA = false; // false = vista simple de puntos periciales (como antes); true = modo edición con IA
 let currentSha = null;
+let basePericias = []; // última versión confirmada en GitHub (base para combinar cambios simultáneos)
 let config = null; // { owner, repo, branch, token } — solo en memoria/sessionStorage, nunca en disco
 let saving = false;
 
@@ -657,35 +675,98 @@ function ghUrl(){
   return `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${DATA_PATH}`;
 }
 
-async function ghLoad(){
-  const res = await fetch(`${ghUrl()}?ref=${encodeURIComponent(config.branch)}&t=${Date.now()}`, { headers: ghHeaders() });
-  if(res.status === 404){
-    currentSha = null;
-    return [];
-  }
-  if(res.status === 401 || res.status === 403){
-    throw new Error('AUTH');
-  }
-  if(!res.ok) throw new Error('HTTP_' + res.status);
-  const json = await res.json();
-  currentSha = json.sha;
-  const rawText = b64ToUtf8(json.content);
-  return await decryptData(config.dataKey, rawText);
-}
-
-async function ghSave(data, message){
-  const encryptedPayload = await encryptData(config.dataKey, data);
-  const body = {
-    message,
-    content: utf8ToB64(encryptedPayload),
-    branch: config.branch
-  };
-  if(currentSha) body.sha = currentSha;
-  const res = await fetch(ghUrl(), { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+// Trae la versión actual de GitHub sin tocar el estado de la app.
+async function ghFetchRemote(){
+  const res = await fetch(`${ghUrl()}?ref=${encodeURIComponent(config.branch)}&t=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
+  if(res.status === 404) return { sha:null, data:[] };
   if(res.status === 401 || res.status === 403) throw new Error('AUTH');
   if(!res.ok) throw new Error('HTTP_' + res.status);
   const json = await res.json();
-  currentSha = json.content.sha;
+  const rawText = b64ToUtf8(json.content);
+  return { sha: json.sha, data: await decryptData(config.dataKey, rawText) };
+}
+
+async function ghLoad(){
+  const remote = await ghFetchRemote();
+  currentSha = remote.sha;
+  basePericias = clonar(remote.data);
+  return remote.data;
+}
+
+/* ---------- Combinación de cambios simultáneos (3 vías: base / mío / remoto) ----------
+   Si otra compu guardó mientras yo editaba, GitHub rechaza mi guardado (409).
+   En vez de perder el cambio, se trae lo remoto, se combina campo por campo
+   (y por id en listas como pericias, novedades y documentos) y se vuelve a guardar.
+   Solo si los dos editaron exactamente el mismo campo gana el último que guarda. */
+function clonar(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
+function iguales(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+function esObjetoPlano(x){ return x !== null && typeof x === 'object' && !Array.isArray(x); }
+function esListaConIds(x){ return Array.isArray(x) && x.length > 0 && x.every(e => esObjetoPlano(e) && e.id !== undefined); }
+
+function merge3(base, mio, remoto){
+  if(iguales(mio, remoto)) return mio;
+  if(iguales(base, mio)) return remoto;
+  if(iguales(base, remoto)) return mio;
+  // Ambos cambiaron
+  if(esObjetoPlano(mio) && esObjetoPlano(remoto)){
+    const b = esObjetoPlano(base) ? base : {};
+    const out = {};
+    new Set([...Object.keys(mio), ...Object.keys(remoto), ...Object.keys(b)]).forEach(k => {
+      const v = merge3(b[k], mio[k], remoto[k]);
+      if(v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+  if(Array.isArray(mio) && Array.isArray(remoto)){
+    const b = Array.isArray(base) ? base : [];
+    if((esListaConIds(mio) || mio.length === 0) && (esListaConIds(remoto) || remoto.length === 0) && (esListaConIds(b) || b.length === 0)){
+      const porId = arr => new Map(arr.map(e => [e.id, e]));
+      const mb = porId(b), mm = porId(mio), mr = porId(remoto);
+      const orden = [...remoto.map(e => e.id), ...mio.map(e => e.id).filter(id => !mr.has(id))];
+      const out = [];
+      orden.forEach(id => {
+        const v = merge3(mb.get(id), mm.get(id), mr.get(id));
+        if(v !== undefined) out.push(v);
+      });
+      return out;
+    }
+    // Listas sin id (p. ej. respuestas a puntos periciales): posición por posición
+    const largo = Math.max(mio.length, remoto.length);
+    const out = [];
+    for(let i = 0; i < largo; i++) out.push(merge3(b[i], mio[i], remoto[i]));
+    return out;
+  }
+  return mio; // mismo dato editado en las dos compus: gana el último en guardar
+}
+
+async function ghPut(message){
+  const encryptedPayload = await encryptData(config.dataKey, pericias);
+  const body = { message, content: utf8ToB64(encryptedPayload), branch: config.branch };
+  if(currentSha) body.sha = currentSha;
+  return fetch(ghUrl(), { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+}
+
+// Devuelve true si tuvo que combinar con cambios de otra compu.
+async function ghSave(_data, message){
+  let combinado = false;
+  for(let intento = 0; intento < 4; intento++){
+    const res = await ghPut(message);
+    if(res.status === 401 || res.status === 403) throw new Error('AUTH');
+    if(res.status === 409 || res.status === 422){
+      const remoto = await ghFetchRemote();
+      pericias = merge3(basePericias, pericias, remoto.data);
+      basePericias = clonar(remoto.data);
+      currentSha = remoto.sha;
+      combinado = true;
+      continue;
+    }
+    if(!res.ok) throw new Error('HTTP_' + res.status);
+    const json = await res.json();
+    currentSha = json.content.sha;
+    basePericias = clonar(pericias);
+    return combinado;
+  }
+  throw new Error('CONFLICTO');
 }
 
 function showApp(){ document.getElementById('app').classList.remove('hidden'); }
@@ -719,18 +800,102 @@ async function connectAndLoad(){
   }
 }
 
-async function persist(message){
+// Los guardados se encolan para que dos clics seguidos no se pisen entre sí.
+let colaGuardado = Promise.resolve();
+function persist(message){
+  colaGuardado = colaGuardado.then(() => persistAhora(message));
+  return colaGuardado;
+}
+async function persistAhora(message){
   saving = true;
   setConn('warn', 'Guardando en GitHub…');
   try{
-    await ghSave(pericias, message);
+    const combinado = await ghSave(pericias, message);
     setConn('ok', 'Conectado a ' + config.owner + '/' + config.repo + ' · guardado ✓');
+    if(combinado){
+      renderConScroll();
+      mostrarToast('Guardado ✓ · se sumaron cambios hechos desde otra compu');
+    }
+    remotoPendiente = null; // lo guardado ya incluye todo lo remoto
+    ocultarPillSync();
   }catch(e){
     setConn('error', e.message === 'AUTH' ? 'Token inválido o expirado, no se pudo guardar.' : 'Error al guardar (' + e.message + ').');
     alert('No se pudo guardar en GitHub. Revisá la configuración y volvé a intentar.');
   }
   saving = false;
 }
+
+/* ---------- Sincronización automática entre compus ----------
+   Cada 30 segundos (y al volver a la ventana) se consulta si alguien guardó algo.
+   Si estás en medio de algo (escribiendo, con un formulario abierto o en
+   "Resolver con IA") no se toca la pantalla: aparece un aviso para actualizar. */
+const SYNC_CADA_MS = 30000;
+let remotoPendiente = null;
+let chequeandoSync = false;
+
+function renderConScroll(){
+  const y = window.scrollY;
+  renderAll();
+  window.scrollTo(0, y);
+}
+function mostrarToast(texto){
+  const t = document.getElementById('sync-toast');
+  t.textContent = texto;
+  t.classList.add('show');
+  clearTimeout(mostrarToast._t);
+  mostrarToast._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function ocultarPillSync(){ document.getElementById('sync-pill').classList.add('hidden'); }
+
+function usuarioOcupado(){
+  if(saving) return true;
+  if(!document.getElementById('modal-overlay').classList.contains('hidden')) return true;
+  if(modoResolverIA) return true;
+  const a = document.activeElement;
+  if(a && a.closest && a.closest('#app') && (a.tagName === 'TEXTAREA' || a.isContentEditable || (a.tagName === 'INPUT' && a.type !== 'file' && a.id !== 'search'))) return true;
+  // Texto escrito y todavía no guardado en los cuadros de novedad / IA / búsqueda
+  const borradores = document.querySelectorAll('#app textarea, #view-detail input[type="text"]');
+  for(const el of borradores){ if(el.value && el.value !== el.defaultValue) return true; }
+  if(document.querySelector('#app input[type="file"]') && [...document.querySelectorAll('#app input[type="file"]')].some(f => f.files && f.files.length)) return true;
+  if(typeof archivosAcumulados === 'object' && archivosAcumulados && Object.values(archivosAcumulados).some(v => v && Object.keys(v).length)) return true;
+  return false;
+}
+
+function aplicarCambiosRemotos(forzar){
+  if(!remotoPendiente) return;
+  if(!forzar && usuarioOcupado()){
+    document.getElementById('sync-pill').classList.remove('hidden');
+    return;
+  }
+  if(saving) return; // se reintenta en el próximo chequeo
+  pericias = remotoPendiente.data;
+  basePericias = clonar(remotoPendiente.data);
+  currentSha = remotoPendiente.sha;
+  remotoPendiente = null;
+  ocultarPillSync();
+  if(forzar && modoResolverIA){ renderAll(); } else { renderConScroll(); }
+  mostrarToast('Actualizado con cambios de otra compu');
+}
+
+async function chequearCambiosRemotos(){
+  if(chequeandoSync || saving || !config || document.hidden) return;
+  if(document.getElementById('app').classList.contains('hidden')) return;
+  chequeandoSync = true;
+  try{
+    const remoto = await ghFetchRemote();
+    if(remoto.sha && remoto.sha !== currentSha && !saving){
+      remotoPendiente = remoto;
+      aplicarCambiosRemotos(false);
+    } else if(remotoPendiente && !usuarioOcupado()){
+      aplicarCambiosRemotos(false);
+    }
+  }catch(e){ /* sin conexión o error puntual: se reintenta en el próximo ciclo */ }
+  chequeandoSync = false;
+}
+setInterval(chequearCambiosRemotos, SYNC_CADA_MS);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) chequearCambiosRemotos(); });
+window.addEventListener('focus', chequearCambiosRemotos);
+window.addEventListener('online', chequearCambiosRemotos);
 
 /* ---------- Utilidades de fecha ---------- */
 function daysUntil(dateStr){
@@ -2022,6 +2187,12 @@ document.getElementById('f-juzgado').addEventListener('change', () => {
   }
 });
 window.addEventListener('hashchange', renderRoute);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker no registrado:', err));
+  });
+}
 
 (async function init(){
   loadSessionConfig();
