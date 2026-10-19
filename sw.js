@@ -4,7 +4,7 @@
      Si no hay conexión, se abre la última versión guardada.
    - Los datos (api.github.com), la IA (Cloudflare Worker) y config.enc.json
      nunca pasan por la caché: siempre van directo a internet. */
-const CACHE = 'pericias-app-v1';
+const CACHE = 'pericias-app-v2';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

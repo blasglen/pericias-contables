@@ -5,238 +5,334 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro de Pericias Contables</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#243329">
+<meta name="theme-color" content="#F4F5F7">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pericias">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ===== Tokens =====
+     Claro y sobrio. Un solo acento: azul tinta (el de la firma del perito).
+     Rojo / ámbar / verde solo para plazos y estados. */
   :root{
-    --ink:#182620; --paper:#EFEAE0; --paper-2:#E6E0D2;
-    --folder:#3B5240; --folder-dark:#243329;
-    --brass:#A67C3D; --brass-dark:#8A6530;
-    --alert:#9B3B3B; --warn:#C08A2E; --ok:#4B7455; --teal:#3F6470; --slate:#7A7A6E;
-    --line:#C9C0AC; --white-ish:#FBF9F4;
+    --bg:#F4F5F7;          /* fondo de página */
+    --surface:#FFFFFF;     /* superficies */
+    --fill:#EEF0F3;        /* rellenos sutiles */
+    --ink:#171A20;         /* texto principal */
+    --muted:#5E6573;       /* texto secundario */
+    --faint:#8D93A0;       /* texto terciario */
+    --line:#E3E5EA;        /* bordes */
+    --line-strong:#CDD1D9;
+    --accent:#1F4E79;      /* azul tinta */
+    --accent-hover:#173C5E;
+    --accent-soft:#E8EFF6;
+    --alert:#C0392B; --alert-soft:#FBEDEB;
+    --warn:#B26B00;  --warn-soft:#FDF3E3;
+    --ok:#2D7A55;    --ok-soft:#E9F4EE;
+    --teal:#2C7385;  --teal-soft:#E6F2F4;
+    --slate:#8D93A0;
+
+    /* Alias de los nombres viejos (los usa el código y algunos estilos en línea) */
+    --paper:var(--bg); --paper-2:var(--fill);
+    --folder:var(--accent); --folder-dark:var(--ink);
+    --brass:var(--accent); --brass-dark:var(--accent-hover);
+    --white-ish:var(--surface);
+
+    --radius:10px; --radius-sm:7px;
+    --shadow:0 1px 2px rgba(23,26,32,.05);
+    --shadow-pop:0 18px 50px rgba(23,26,32,.18);
+    --font:'Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{background:var(--paper);color:var(--ink);font-family:'Source Serif 4',Georgia,serif;-webkit-font-smoothing:antialiased;}
-  .mono{font-family:'IBM Plex Mono','Courier New',monospace;}
-  #app{max-width:1100px;margin:0 auto;padding:28px 24px 80px;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  button,input,select,textarea{font-family:inherit;color:inherit;}
+  .mono{font-variant-numeric:tabular-nums;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .hidden{display:none !important;}
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important;animation:none !important;} }
 
-  .masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double var(--folder-dark);padding-bottom:16px;margin-bottom:14px;gap:16px;flex-wrap:wrap;}
-  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--folder-dark);text-transform:uppercase;margin-bottom:4px;}
-  .masthead h1{margin:0;font-size:30px;font-weight:700;color:var(--folder-dark);}
+  #app{max-width:1080px;margin:0 auto;padding:20px 24px 96px;}
+
+  /* ===== Barra superior ===== */
+  .masthead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:6px 0 22px;}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand-mark{width:36px;height:36px;border-radius:9px;background:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .brand-mark svg{width:20px;height:20px;}
+  .masthead h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.2;}
+  .eyebrow{display:none;}
   .masthead-actions{display:flex;gap:8px;}
-  .btn{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;border:none;border-radius:3px;padding:11px 18px;cursor:pointer;transition:transform .12s ease;}
-  .btn:hover{transform:translateY(-1px);}
-  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-  .btn-brass{background:var(--brass);color:var(--white-ish);}
-  .btn-brass:hover{background:var(--brass-dark);}
-  .btn-ghost{background:transparent;color:var(--folder-dark);border:1px solid var(--line);}
-  .btn-alert{background:var(--alert);color:var(--white-ish);}
-  .btn-small{padding:6px 12px;font-size:11px;}
 
-  .conn-bar{
-    display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;
-    padding:8px 12px;border-radius:3px;margin-bottom:20px;
-  }
-  .conn-ok{background:#e4ede4;color:var(--folder-dark);border:1px solid #c3d5c4;}
-  .conn-warn{background:#f4e6d7;color:var(--warn);border:1px solid #e6cfa9;}
-  .conn-error{background:#f2dede;color:var(--alert);border:1px solid #e3bcbc;}
-  .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .conn-bar{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin:2px 0 0;padding:0;background:none;border:none;}
+  .conn-bar .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--faint);}
+  .conn-ok .dot{background:var(--ok);}
+  .conn-warn .dot{background:var(--warn);}
+  .conn-error{color:var(--alert);} .conn-error .dot{background:var(--alert);}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
 
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
-  .stat-card{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:14px 16px;}
-  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--folder-dark);}
-  .stat-label{font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--slate);text-transform:uppercase;margin-top:2px;}
+  /* ===== Botones ===== */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;border:1px solid transparent;border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;line-height:1.2;transition:background .12s ease,border-color .12s ease,color .12s ease;white-space:nowrap;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-brass{background:var(--accent);color:#fff;}
+  .btn-brass:hover:not(:disabled){background:var(--accent-hover);}
+  .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong);}
+  .btn-ghost:hover:not(:disabled){background:var(--fill);}
+  .btn-alert{background:var(--surface);color:var(--alert);border-color:#EBC4BE;}
+  .btn-alert:hover:not(:disabled){background:var(--alert-soft);}
+  .btn-small{padding:7px 12px;font-size:13px;}
+
+  /* ===== Resumen (stats) ===== */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px;box-shadow:var(--shadow);}
+  .stat-card{padding:14px 18px;display:flex;align-items:baseline;gap:12px;border:none;background:none;}
+  .stat-card + .stat-card{border-left:1px solid var(--line);}
+  .stat-num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--ink);line-height:1;}
+  .stat-label{font-size:13px;color:var(--muted);line-height:1.3;}
   .stat-card.alert-stat .stat-num{color:var(--alert);}
   .stat-card.warn-stat .stat-num{color:var(--warn);}
 
-  .controls{display:flex;gap:10px;margin-bottom:26px;flex-wrap:wrap;}
-  .controls input,.controls select{font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;background:var(--white-ish);color:var(--ink);}
-  #search{flex:1;min-width:220px;}
-  .controls select{cursor:pointer;}
+  /* ===== Filtros ===== */
+  .controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .controls input,.controls select{font-size:14px;padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);min-height:40px;}
+  .controls select{cursor:pointer;max-width:100%;}
+  #search{flex:1 1 260px;min-width:200px;padding-left:36px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238D93A0' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3 3'/%3E%3C/svg%3E") no-repeat 12px center;}
 
-  #list{display:flex;flex-direction:column;gap:26px;}
-  .empty{text-align:center;padding:60px 20px;color:var(--slate);font-style:italic;}
+  /* ===== Listado: una sola superficie con filas ===== */
+  #list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  #list:has(> .empty){background:none;border:none;box-shadow:none;}
+  .empty{text-align:center;padding:56px 20px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface);}
 
-  .ficha{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;box-shadow:0 1px 0 rgba(0,0,0,.04);}
-  .ficha::before{content:attr(data-tab-label);position:absolute;top:-15px;left:18px;background:var(--tab-color,var(--slate));color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;text-transform:uppercase;}
-  .stamp{position:absolute;top:12px;right:18px;width:78px;height:78px;border-radius:50%;border:2px dashed var(--folder-dark);display:flex;align-items:center;justify-content:center;text-align:center;transform:rotate(-9deg);color:var(--folder-dark);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;opacity:.75;pointer-events:none;}
+  .ficha{position:relative;background:none;border:none;border-radius:0;box-shadow:none;}
+  .ficha + .ficha{border-top:1px solid var(--line);}
+  .ficha::before{content:none;}
+  .stamp{display:none;}
+  .ficha-header{display:grid;grid-template-columns:92px minmax(0,1fr) 210px;align-items:center;gap:20px;padding:16px 20px 16px 0;cursor:pointer;transition:background .1s ease;}
+  .ficha-header:hover{background:#FAFBFC;}
 
-  .ficha-header{display:grid;grid-template-columns:150px 1fr 160px 150px 120px;align-items:center;gap:14px;padding:22px 20px 16px;cursor:pointer;}
-  .expediente{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--folder-dark);font-weight:600;}
-  .caratula{font-size:16px;line-height:1.3;}
-  .caratula .juzgado-mini{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate);margin-top:3px;}
-  .caratula .ultimo-acontecimiento{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--folder-dark);margin-top:6px;line-height:1.4;}
-  .caratula .ultimo-acontecimiento .ultimo-fecha{color:var(--brass-dark);font-weight:600;}
-  .badge-contador{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--paper-2);padding:5px 9px;border-radius:3px;text-align:center;color:var(--folder-dark);}
-  .estado-pill{font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-align:center;padding:6px 8px;border-radius:12px;color:var(--white-ish);}
-  .vencimiento{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
-  .vencimiento .lbl{display:block;font-size:9px;color:var(--slate);letter-spacing:.05em;}
-  .venc-ok{color:var(--ok);} .venc-warn{color:var(--warn);font-weight:600;} .venc-alert{color:var(--alert);font-weight:700;}
+  /* Plazo: el dato que más importa a un perito, primero y grande */
+  .plazo{align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-right:1px solid var(--line);padding:2px 6px;color:var(--muted);}
+  .plazo-num{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em;}
+  .plazo-txt{font-size:12px;margin-top:4px;line-height:1.2;}
+  .plazo-fecha{font-size:11.5px;color:var(--faint);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .plazo.venc-alert{color:var(--alert);} .plazo.venc-warn{color:var(--warn);} .plazo.venc-ok{color:var(--ink);}
+  .plazo.plazo-sin{color:var(--faint);} .plazo.plazo-sin .plazo-num{font-size:20px;font-weight:500;}
+
+  .caratula{font-size:15.5px;font-weight:600;line-height:1.35;color:var(--ink);}
+  .ficha-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin-top:3px;}
+  .ficha-meta .expte{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500;}
+  .ultimo-acontecimiento{display:block;font-size:13px;color:var(--muted);margin-top:6px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .ultimo-acontecimiento .ultimo-fecha{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .ficha-side{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;}
+  .badge-contador{font-size:13px;color:var(--muted);background:none;padding:0;text-align:left;}
+
+  /* Estado: punto de color + texto, sin bloque de color pesado */
+  .estado-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink) !important;background:none !important;padding:0;border-radius:0;text-align:left;line-height:1.3;}
+  .estado-pill::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--estado,var(--slate));flex-shrink:0;}
+
+  .vencimiento{font-size:13px;font-variant-numeric:tabular-nums;}
+  .vencimiento .lbl{display:block;font-size:12px;color:var(--muted);}
+  .venc-ok{color:var(--ink);} .venc-warn{color:var(--warn);font-weight:600;} .venc-alert{color:var(--alert);font-weight:600;}
 
   .ficha-body{border-top:1px solid var(--line);padding:18px 20px 22px;display:none;}
   .ficha-body.open{display:block;}
   .ficha-actions{display:flex;gap:8px;margin-bottom:18px;}
-  .timeline-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--folder-dark);margin:0 0 10px;}
-  .timeline{list-style:none;margin:0 0 16px;padding:0;border-left:2px solid var(--line);}
-  .timeline li{position:relative;padding:2px 0 14px 20px;}
-  .timeline li::before{content:'';position:absolute;left:-7px;top:5px;width:11px;height:11px;border-radius:50%;background:var(--brass);border:2px solid var(--white-ish);}
-  .timeline .nov-fecha{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--slate);}
-  .timeline .nov-texto{font-size:14.5px;margin-top:2px;}
-  .no-novedades{color:var(--slate);font-style:italic;font-size:13px;margin-bottom:16px;}
 
-  .add-novedad{display:flex;gap:8px;align-items:flex-start;}
-  .add-novedad input[type=date]{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:3px;}
-  .add-novedad textarea{flex:1;font-family:'Source Serif 4',serif;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;resize:vertical;min-height:38px;}
+  /* ===== Títulos de sección ===== */
+  .timeline-title{font-size:17px;font-weight:700;color:var(--ink);margin:0 0 12px;letter-spacing:-.01em;}
+  .timeline{list-style:none;margin:0 0 16px;padding:0;}
+  .no-novedades{color:var(--muted);font-size:14px;padding:18px;border:1px dashed var(--line-strong);border-radius:var(--radius);text-align:center;}
 
-  #modal-overlay{position:fixed;inset:0;background:rgba(24,38,32,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
-  .hidden{display:none !important;}
+  /* ===== Modales ===== */
+  #modal-overlay{position:fixed;inset:0;background:rgba(23,26,32,.42);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px);}
   #modal-overlay.hidden{display:none;}
-  .modal-box{background:var(--white-ish);border-radius:5px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:26px 28px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
-  .modal-box h2{margin:0 0 8px;font-size:20px;color:var(--folder-dark);}
-  .modal-box p.hint{margin:0 0 18px;font-size:13px;color:var(--slate);line-height:1.5;}
+  .modal-box{background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px 26px 20px;box-shadow:var(--shadow-pop);}
+  .modal-box h2{margin:0 0 16px;font-size:20px;font-weight:700;letter-spacing:-.01em;}
+  .modal-box p.hint{margin:0 0 18px;font-size:14px;color:var(--muted);line-height:1.5;}
+  .hint{font-size:13px;color:var(--muted);}
 
-  #config-overlay{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  #config-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
   #config-overlay.hidden{display:none;}
-  .login-box{max-width:420px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.12);}
-  .login-box .eyebrow{text-align:center;}
-  .login-box h2{font-size:26px;}
+  .login-box{max-width:380px;width:100%;text-align:left;box-shadow:var(--shadow-pop);padding:30px 30px 24px;}
+  .login-box .login-mark{margin-bottom:18px;}
+  .login-box h2{font-size:22px;margin:0 0 6px;}
   .login-box .field{text-align:left;}
-  .login-conn{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate);margin-top:14px;min-height:16px;}
+  .login-box .field input{font-size:20px;letter-spacing:.3em;text-align:center;padding:12px;}
+  .login-box .modal-actions .left{display:none;}
+  .login-box .modal-actions .right{width:100%;}
+  .login-box .modal-actions .btn{width:100%;padding:12px;}
+  .login-conn{font-size:12.5px;color:var(--muted);margin-top:14px;min-height:16px;text-align:center;}
 
-  /* Vista de detalle */
-  .ficha-madre{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:8px;}
-  @keyframes resaltarBloque{
-    0%{box-shadow:0 0 0 3px var(--brass);}
-    70%{box-shadow:0 0 0 3px var(--brass);}
-    100%{box-shadow:0 0 0 0 transparent;}
-  }
+  /* ===== Detalle del expediente ===== */
+  .ficha-madre{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px 22px;margin-bottom:0;box-shadow:var(--shadow);}
+  .ficha-madre::before{content:attr(data-tab-label);display:block;font-size:12.5px;font-weight:600;color:var(--accent);margin:0 0 10px;}
+  .ficha-madre.ficha-documento::before{color:var(--muted);}
+  @keyframes resaltarBloque{0%,60%{box-shadow:0 0 0 3px var(--accent-soft),0 0 0 4px var(--accent);}100%{box-shadow:var(--shadow);}}
   .resaltado{animation:resaltarBloque 2.2s ease-out;}
-  .ficha-madre::before{content:attr(data-tab-label);position:absolute;top:-15px;left:18px;background:var(--folder-dark);color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
-  .ficha-madre.ficha-documento::before{background:var(--brass);}
-  .ficha-madre h2{margin:0 0 4px;font-size:20px;color:var(--folder-dark);}
-  .ficha-madre .juzgado-line{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--slate);margin-bottom:14px;}
-  .ficha-madre-grid{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:14px;}
-  .ficha-madre-grid > div{font-family:'IBM Plex Mono',monospace;font-size:12px;}
-  .ficha-madre-grid .lbl{display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;}
-  .ficha-madre .resumen{font-size:14.5px;line-height:1.55;border-top:1px solid var(--line);padding-top:14px;margin-top:4px;}
-  #detail-documentos{display:flex;flex-direction:column;gap:26px;margin-top:26px;}
-  .ficha-documento .doc-actions{position:absolute;top:12px;right:18px;display:flex;gap:8px;}
+  .ficha-madre h2{margin:0 0 4px;font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-.015em;max-width:60ch;}
+  .ficha-madre .juzgado-line{font-size:14px;color:var(--muted);margin-bottom:18px;font-variant-numeric:tabular-nums;}
+  .ficha-madre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px 22px;margin-bottom:16px;}
+  .ficha-madre-grid > div{font-size:14.5px;font-weight:500;font-variant-numeric:tabular-nums;min-width:0;}
+  .ficha-madre-grid .lbl{display:block;font-size:12.5px;font-weight:400;color:var(--muted);margin-bottom:2px;}
+  .ficha-madre .resumen{font-size:15px;line-height:1.6;border-top:1px solid var(--line);padding-top:16px;margin-top:4px;max-width:75ch;}
+  #detail-documentos{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+  .ficha-documento .doc-actions{position:absolute;top:16px;right:18px;display:flex;gap:8px;}
+  .ficha-madre-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
 
-  /* Vista pericial contable */
-  .pericial-bloque{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-bottom:22px;}
-  .pericial-bloque h3{margin:0 0 14px;font-size:16px;color:var(--folder-dark);font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;}
-  .pericial-bloque h3 .fuente{color:var(--brass);}
-  .puntos-list{list-style:decimal;margin:0;padding-left:22px;counter-reset:none;}
-  .puntos-list li{padding:10px 0 16px 4px;font-size:14.5px;line-height:1.5;border-bottom:1px solid var(--paper-2);}
+  .doc-toggle{position:absolute;top:18px;right:18px;transform:none;width:34px;height:34px;border-radius:50%;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .12s ease;z-index:2;}
+  .doc-toggle:hover{background:var(--fill);}
+  .doc-toggle-right{right:18px;}
+  .doc-toggle-left{right:18px;left:auto;}
+  .contestacion-tag{display:none;}
+  #vista-demanda h2,#vista-contestacion h2{padding-right:46px;}
+
+  /* ===== Pericial contable ===== */
+  .pericial-bloque{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .pericial-bloque h3{margin:0 0 14px;font-size:17px;font-weight:700;letter-spacing:-.01em;}
+  .pericial-bloque h3 .fuente{color:var(--muted);font-weight:500;}
+  .puntos-list{list-style:none;margin:0;padding:0;counter-reset:punto;}
+  .puntos-list li{counter-increment:punto;position:relative;padding:12px 0 14px 38px;font-size:15px;line-height:1.55;border-bottom:1px solid var(--line);}
+  .puntos-list li::before{content:counter(punto);position:absolute;left:0;top:12px;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
   .puntos-list li:last-child{border-bottom:none;}
-  .puntos-list li::marker{color:var(--brass);font-family:'IBM Plex Mono',monospace;font-weight:600;}
-  .pericial-parte{border-left:2px solid var(--brass);padding-left:14px;margin-bottom:16px;}
+  .pericial-parte{border-left:3px solid var(--accent-soft);padding-left:16px;margin-bottom:18px;}
   .pericial-parte:last-child{margin-bottom:0;}
-  .pericial-parte-nombre{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;font-weight:600;}
+  .pericial-parte-nombre{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:4px;}
   .puntos-acciones{display:flex;gap:8px;margin:-4px 0 14px;flex-wrap:wrap;}
   .punto-texto{margin-bottom:8px;}
-  .respuesta-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin-bottom:4px;}
-  .respuesta-ia{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:13.5px;background:var(--paper);resize:vertical;min-height:48px;}
-  .pericial-sin{font-size:14px;color:var(--slate);font-style:italic;}
-  .liq-table{width:100%;border-collapse:collapse;font-size:14px;}
-  .liq-table td{padding:8px 4px;border-bottom:1px solid var(--paper-2);}
-  .liq-table td:last-child{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
-  .liq-table tr.total td{border-top:2px solid var(--folder-dark);border-bottom:none;font-weight:700;padding-top:10px;}
+  .respuesta-label{font-size:12.5px;color:var(--muted);margin-bottom:4px;}
+  .respuesta-ia{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);font-size:14.5px;line-height:1.5;background:var(--bg);resize:vertical;min-height:52px;}
+  .respuesta-ia:focus{background:var(--surface);}
+  .pericial-sin{font-size:14px;color:var(--muted);}
+  .liq-table{width:100%;border-collapse:collapse;font-size:15px;}
+  .liq-table td{padding:10px 6px;border-bottom:1px solid var(--line);}
+  .liq-table td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:500;}
+  .liq-table tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700;padding-top:12px;}
   .liq-table td.clickable{cursor:pointer;}
-  .liq-table tr.clickable-row:hover td{background:var(--paper-2);}
-  .calculo-item{background:var(--white-ish);border:1px solid var(--line);border-radius:4px;padding:16px 18px;margin-bottom:14px;}
-  .calculo-item .rubro{font-weight:bold;font-size:15px;color:var(--folder-dark);display:flex;justify-content:space-between;gap:12px;}
-  .calculo-item .monto{font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
-  .calculo-item .detalle{margin-top:8px;font-size:14px;line-height:1.5;color:var(--ink);}
-  .calculo-item .sin-detalle{margin-top:8px;font-size:13px;color:var(--slate);font-style:italic;}
-  .pericial-empty{color:var(--slate);font-style:italic;font-size:14px;}
-  .archivo-chip{display:inline-flex;align-items:center;gap:6px;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:4px 6px 4px 12px;margin:0 6px 6px 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--folder-dark);}
-  .archivo-chip .archivo-tam{color:var(--slate);}
-  .archivo-chip button{background:var(--white-ish);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;color:var(--alert);font-size:12px;padding:0;}
-  .archivo-chip button:hover{background:var(--alert);color:var(--white-ish);}
-  .archivos-resumen{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate);margin-bottom:6px;}
+  .liq-table tr.clickable-row:hover td{background:var(--fill);}
+  .calculo-item{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;}
+  .calculo-item .rubro{font-weight:600;font-size:15.5px;display:flex;justify-content:space-between;gap:12px;}
+  .calculo-item .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .calculo-item .detalle{margin-top:8px;font-size:14.5px;line-height:1.55;color:var(--ink);}
+  .calculo-item .sin-detalle{margin-top:8px;font-size:14px;color:var(--muted);}
+  .pericial-empty{color:var(--muted);font-size:14.5px;padding:28px;text-align:center;border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface);}
+  #liquidacion-content h2{font-size:22px;font-weight:700;letter-spacing:-.015em;margin:0 0 2px;}
+
+  .archivo-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:4px 5px 4px 12px;margin:0 6px 6px 0;font-size:13px;}
+  .archivo-chip .archivo-tam{color:var(--muted);}
+  .archivo-chip button{background:var(--fill);border:none;border-radius:50%;width:20px;height:20px;line-height:1;cursor:pointer;color:var(--muted);font-size:11px;padding:0;}
+  .archivo-chip button:hover{background:var(--alert);color:#fff;}
+  .archivos-resumen{font-size:13px;color:var(--muted);margin-bottom:8px;}
   .archivos-resumen.archivos-alerta{color:var(--alert);}
-  .archivos-resumen.archivos-warn{color:var(--brass-dark);}
-  .btn-vaciar-archivos{background:none;border:none;color:var(--slate);text-decoration:underline;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:8px;}
-  .ficha-madre-actions{display:flex;gap:8px;margin-top:16px;}
+  .archivos-resumen.archivos-warn{color:var(--warn);}
+  .btn-vaciar-archivos{background:none;border:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px;margin-left:8px;}
 
-  .doc-toggle{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:var(--brass);color:var(--white-ish);border:2px solid var(--white-ish);cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.22);z-index:2;transition:background .12s ease,transform .12s ease;}
-  .doc-toggle:hover{background:var(--brass-dark);transform:translateY(-50%) scale(1.06);}
-  .doc-toggle-right{right:-16px;}
-  .doc-toggle-left{left:-16px;}
-  .contestacion-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass-dark);background:var(--paper-2);padding:3px 8px;border-radius:3px;margin-bottom:10px;}
-  @media (max-width:800px){
-    .doc-toggle-right{right:-12px;width:32px;height:32px;font-size:15px;}
-    .doc-toggle-left{left:-12px;width:32px;height:32px;font-size:15px;}
-  }
+  /* ===== Novedades ===== */
+  #detail-novedades{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  #detail-novedades:has(> .no-novedades){background:none;border:none;box-shadow:none;}
+  .nov-card{position:relative;display:grid;grid-template-columns:96px minmax(0,1fr);column-gap:18px;background:none;border:none;border-radius:0;padding:14px 84px 14px 20px;margin:0;}
+  .nov-card + .nov-card{border-top:1px solid var(--line);}
+  .nov-card::before{content:attr(data-tab-label);grid-column:1;grid-row:1 / span 2;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);padding-top:1px;}
+  .nov-card .nov-tag{grid-column:2;justify-self:start;}
+  .nov-card .nov-texto{grid-column:2;font-size:15px;line-height:1.55;}
+  .nov-card .nov-del{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:5px;}
+  .nov-card .nov-del:hover{color:var(--alert);background:var(--alert-soft);}
+  .nov-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:5px;}
+  .nov-del:hover{color:var(--alert);background:var(--alert-soft);}
+  .nov-tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;margin-bottom:5px;}
+  .nov-tag-personal{background:var(--teal-soft);color:var(--teal);}
+  .nov-tag-expediente{background:var(--accent-soft);color:var(--accent);}
 
-  .nov-card{position:relative;background:var(--white-ish);border:1px solid var(--line);border-radius:2px;padding:18px 20px;margin-bottom:22px;}
-  .nov-card::before{content:attr(data-tab-label);position:absolute;top:-14px;left:18px;background:var(--tab-color,var(--brass));color:var(--white-ish);font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 10px 4px;border-radius:3px 3px 0 0;}
-  .nov-card .nov-texto{font-size:15px;line-height:1.5;}
-  .nov-card .nov-del{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--slate);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;}
-  .nov-card .nov-del:hover{color:var(--alert);}
-  .nov-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:10px;margin-bottom:8px;}
-  .nov-tag-personal{background:#e2ebec;color:var(--teal);}
-  .nov-tag-expediente{background:var(--paper-2);color:var(--brass-dark);}
+  .nov-filter{display:inline-flex;gap:2px;margin-bottom:12px;padding:3px;background:var(--fill);border-radius:9px;}
+  .nov-filter-btn{font-size:13px;font-weight:600;background:transparent;border:none;color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer;}
+  .nov-filter-btn:hover{color:var(--ink);}
+  .nov-filter-btn.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(23,26,32,.12);}
 
-  .nov-filter{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
-  .nov-filter-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;background:transparent;border:1px solid var(--line);color:var(--slate);padding:6px 12px;border-radius:14px;cursor:pointer;transition:all .12s ease;}
-  .nov-filter-btn:hover{border-color:var(--brass);color:var(--folder-dark);}
-  .nov-filter-btn.active{background:var(--folder-dark);border-color:var(--folder-dark);color:var(--white-ish);}
+  .add-novedad{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;}
+  .add-novedad input[type=date]{font-size:14px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);min-height:40px;font-variant-numeric:tabular-nums;}
+  .add-novedad textarea{flex:1 1 260px;font-size:15px;padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);resize:vertical;min-height:40px;line-height:1.45;}
+  .add-novedad-tipo{flex:1 1 100%;display:flex;align-items:center;gap:10px;}
+  .add-novedad-tipo .nov-origen-toggle{margin:0;}
+  .nov-origen-toggle{display:inline-flex;gap:2px;padding:3px;background:var(--fill);border-radius:9px;margin-bottom:8px;}
+  .nov-origen-btn{font-size:13px;font-weight:600;background:transparent;border:none;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;}
+  .nov-origen-btn.active[data-origen="personal"]{background:var(--surface);color:var(--teal);box-shadow:0 1px 2px rgba(23,26,32,.12);}
+  .nov-origen-btn.active[data-origen="expediente"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(23,26,32,.12);}
 
-  .nov-origen-toggle{display:flex;gap:6px;margin-bottom:8px;}
-  .nov-origen-btn{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.03em;background:var(--paper);border:1px solid var(--line);color:var(--slate);padding:6px 10px;border-radius:3px;cursor:pointer;}
-  .nov-origen-btn.active[data-origen="personal"]{background:#e2ebec;border-color:var(--teal);color:var(--teal);}
-  .nov-origen-btn.active[data-origen="expediente"]{background:var(--paper-2);border-color:var(--brass);color:var(--brass-dark);}
-  .ai-box{background:var(--paper-2);border:1px dashed var(--brass);border-radius:4px;padding:14px 16px;margin-bottom:20px;}
-  .ai-box label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:6px;}
+  /* ===== Cajas de IA ===== */
+  .ai-box{background:var(--accent-soft);border:1px solid #D3E0EC;border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;}
+  .ai-box label{display:block;font-size:14px;font-weight:600;color:var(--accent);margin-bottom:8px;}
+  .ai-box textarea,.ai-box input[type=text]{background:var(--surface) !important;border-color:#C9D6E3 !important;border-radius:var(--radius-sm) !important;}
+  input[type=file]{font-size:13px;color:var(--muted);}
+  input[type=file]::file-selector-button{font:inherit;font-weight:600;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:7px 12px;margin-right:10px;cursor:pointer;}
+
+  /* ===== Formularios ===== */
   .field{margin-bottom:14px;}
-  .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin-bottom:5px;}
-  .field input,.field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);}
-  .field input.mono{font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);min-height:42px;}
+  .field input:focus,.field select:focus,.field textarea:focus,.add-novedad textarea:focus,.controls input:focus,.controls select:focus,.respuesta-ia:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .field textarea{background:var(--surface) !important;}
   .field-row{display:flex;gap:12px;}
-  .field-row .field{flex:1;}
-  .modal-actions{display:flex;justify-content:space-between;margin-top:20px;gap:10px;}
+  .field-row .field{flex:1;min-width:0;}
+  .modal-actions{display:flex;justify-content:space-between;margin-top:22px;gap:10px;}
   .modal-actions .right{display:flex;gap:8px;}
 
-  @media (max-width:800px){
-    .ficha-header{grid-template-columns:1fr;text-align:left;gap:6px;}
-    .vencimiento{text-align:left;}
-    .estado-pill{width:fit-content;}
-    .stats{grid-template-columns:1fr 1fr;}
-    .stamp{display:none;}
-  }
-  /* Sincronización entre compus */
-  #sync-pill{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--folder-dark);color:var(--white-ish);border:none;border-radius:999px;padding:10px 18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:60;max-width:calc(100% - 32px);}
+  /* ===== Navegación de vistas ===== */
+  #view-detail > div:first-child, #view-pericial > div:first-child{margin-bottom:16px !important;}
+
+  /* ===== Sincronización entre compus ===== */
+  #sync-pill{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;border:none;border-radius:999px;padding:11px 18px;font-size:14px;box-shadow:var(--shadow-pop);cursor:pointer;z-index:60;max-width:calc(100% - 32px);}
   #sync-pill.hidden{display:none;}
-  #sync-pill .sync-accion{color:var(--brass);font-weight:600;margin-left:8px;text-decoration:underline;}
-  #sync-toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ok);color:#fff;border-radius:999px;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:61;opacity:0;pointer-events:none;transition:opacity .25s ease;}
-  #sync-toast.show{opacity:1;}
+  #sync-pill .sync-accion{color:#9EC3E6;font-weight:700;margin-left:10px;}
+  #sync-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;box-shadow:var(--shadow-pop);z-index:61;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+  #sync-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ===== Celular ===== */
+  @media (max-width:760px){
+    #app{padding:14px 14px 96px;}
+    .masthead{padding-bottom:16px;}
+    .masthead-actions{width:100%;}
+    .masthead-actions .btn{flex:1;}
+    .stat-card{flex-direction:column;gap:3px;padding:11px 12px;}
+    .stat-num{font-size:22px;}
+    .stat-label{font-size:12px;}
+    .controls select{flex:1 1 calc(50% - 4px);min-width:0;}
+    .add-novedad textarea{flex-basis:100%;}
+    .add-novedad .btn{margin-left:auto;}
+    .ficha-header{grid-template-columns:72px minmax(0,1fr);gap:14px;padding:14px 16px 14px 0;}
+    .ficha-side{grid-column:2;flex-direction:row;flex-wrap:wrap;gap:4px 14px;}
+    .plazo{grid-row:1 / span 2;}
+    .plazo-num{font-size:24px;}
+    .ficha-madre{padding:18px 18px 20px;}
+    .ficha-madre h2{font-size:19px;}
+    .ficha-madre-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;}
+    .pericial-bloque{padding:18px;}
+    .nov-card{grid-template-columns:1fr;padding:14px 70px 14px 16px;}
+    .nov-card::before{grid-row:auto;margin-bottom:4px;}
+    .nov-card .nov-tag,.nov-card .nov-texto{grid-column:1;}
+    .field-row{flex-direction:column;gap:0;}
+    .modal-box{padding:20px 18px 18px;border-radius:14px;}
+    #modal-overlay{padding:10px;align-items:flex-end;}
+  }
 </style>
 </head>
 <body>
 <div id="app" class="hidden">
   <div class="masthead">
-    <div>
-      <div class="eyebrow">Libro de novedades · respaldado en GitHub</div>
-      <h1>Registro de Pericias Contables</h1>
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div>
+      <div>
+        <h1>Pericias contables</h1>
+        <div id="conn-bar" class="conn-bar conn-warn"><span class="dot"></span><span id="conn-text">Conectando…</span></div>
+      </div>
     </div>
     <div class="masthead-actions">
-      <button class="btn btn-ghost" id="btn-config">🔒 Bloquear</button>
-      <button class="btn btn-brass" id="btn-nueva">+ Nueva pericia</button>
+      <button class="btn btn-ghost" id="btn-config">Bloquear</button>
+      <button class="btn btn-brass" id="btn-nueva">Nueva pericia</button>
     </div>
   </div>
 
-  <div id="conn-bar" class="conn-bar conn-warn"><span class="dot"></span><span id="conn-text">Sin configurar todavía</span></div>
 
   <!-- VISTA: listado principal -->
   <div id="view-list">
@@ -244,14 +340,14 @@
 
     <div class="controls">
       <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
-      <select id="filter-contador"><option value="">Todos los contadores</option></select>
-      <select id="filter-organismo"><option value="">Todos los organismos</option></select>
-      <select id="filter-estado"><option value="">Todos los estados</option></select>
+      <select id="filter-contador"><option value="">Contador: todos</option></select>
+      <select id="filter-organismo"><option value="">Organismo: todos</option></select>
+      <select id="filter-estado"><option value="">Estado: todos</option></select>
       <select id="sort-by">
-        <option value="reciente" selected>Ordenar: movimiento más reciente</option>
-        <option value="vencimiento">Ordenar: vencimiento más próximo</option>
-        <option value="expediente">Ordenar: n° de expediente</option>
-        <option value="alfabetico">Ordenar: alfabético (carátula)</option>
+        <option value="reciente" selected>Orden: más reciente</option>
+        <option value="vencimiento">Orden: vencimiento</option>
+        <option value="expediente">Orden: n° de expediente</option>
+        <option value="alfabetico">Orden: carátula A–Z</option>
       </select>
     </div>
 
@@ -261,15 +357,15 @@
   <!-- VISTA: detalle de un juicio -->
   <div id="view-detail" class="hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
-      <button class="btn btn-ghost btn-small" id="btn-volver">← Volver al listado</button>
+      <button class="btn btn-ghost btn-small" id="btn-volver">← Listado</button>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost btn-small" id="btn-buscar">🔎 Buscar</button>
-        <button class="btn btn-brass btn-small" id="btn-pericial">📊 Pericial Contable</button>
+        <button class="btn btn-ghost btn-small" id="btn-buscar">Buscar en el expediente</button>
+        <button class="btn btn-brass btn-small" id="btn-pericial">Pericial contable</button>
       </div>
     </div>
     <div id="buscar-box" class="ai-box hidden" style="margin-bottom:18px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="text" id="buscar-input" placeholder="Ej: aceptación del cargo" style="flex:1;min-width:200px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);">
+        <input type="text" id="buscar-input" placeholder="Ej: aceptación del cargo" style="flex:1;min-width:200px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);">
         <button class="btn btn-brass btn-small" id="btn-buscar-ir">Buscar</button>
       </div>
       <div id="buscar-status" class="hint" style="margin:8px 0 0;"></div>
@@ -279,31 +375,31 @@
 
     <div class="ai-box" id="detail-ai-box" style="margin-top:24px;">
       <label>Analizar un nuevo documento con IA (contestación, ampliación, cédula, resolución, etc.)</label>
-      <textarea id="detail-ai-texto" rows="3" placeholder="Pegá acá el texto del nuevo documento…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <textarea id="detail-ai-texto" rows="3" placeholder="Pegá acá el texto del nuevo documento…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="file" id="detail-ai-archivo" accept="image/*,application/pdf" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">
+        <input type="file" id="detail-ai-archivo" accept="image/*,application/pdf" style="font-size:11.5px;">
         <button class="btn btn-ghost btn-small" id="btn-detail-ai-analizar" type="button">Analizar y completar novedad</button>
       </div>
       <div id="detail-ai-status" class="hint" style="margin:6px 0 0;"></div>
       <div id="detail-ai-preview" class="hidden" style="margin-top:14px;border-top:1px dashed var(--brass);padding-top:14px;"></div>
     </div>
 
-    <div class="timeline-title" style="margin-top:24px;">Novedades</div>
+    <div class="timeline-title" style="margin-top:28px;">Novedades</div>
+    <div class="add-novedad" style="margin-bottom:16px;">
+      <div class="add-novedad-tipo">
+      <div class="nov-origen-toggle" id="nov-origen-toggle">
+        <button type="button" class="nov-origen-btn active" data-origen="personal" onclick="setNovOrigenManual('personal')">Nota personal</button>
+        <button type="button" class="nov-origen-btn" data-origen="expediente" onclick="setNovOrigenManual('expediente')">Del expediente</button>
+      </div>
+      </div>
+      <input type="date" id="detail-nov-fecha" value="">
+      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado…" oninput="onNovTextoInput()"></textarea>
+      <button class="btn btn-brass" id="btn-detail-agregar">Agregar</button>
+    </div>
     <div class="nov-filter" id="nov-filter">
       <button type="button" class="nov-filter-btn active" data-filtro="todas" onclick="setNovFiltro('todas')">Todas</button>
-      <button type="button" class="nov-filter-btn" data-filtro="personal" onclick="setNovFiltro('personal')">🖊 Anotaciones</button>
-      <button type="button" class="nov-filter-btn" data-filtro="expediente" onclick="setNovFiltro('expediente')">📄 Expediente</button>
-    </div>
-    <div class="add-novedad" style="margin-bottom:8px;">
-      <input type="date" id="detail-nov-fecha" value="">
-      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado, etc." oninput="onNovTextoInput()"></textarea>
-      <button class="btn btn-brass btn-small" id="btn-detail-agregar">Agregar</button>
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:22px;">
-      <div class="nov-origen-toggle" id="nov-origen-toggle">
-        <button type="button" class="nov-origen-btn active" data-origen="personal" onclick="setNovOrigenManual('personal')">🖊 Nota personal</button>
-        <button type="button" class="nov-origen-btn" data-origen="expediente" onclick="setNovOrigenManual('expediente')">📄 Del expediente</button>
-      </div>
+      <button type="button" class="nov-filter-btn" data-filtro="personal" onclick="setNovFiltro('personal')">Anotaciones</button>
+      <button type="button" class="nov-filter-btn" data-filtro="expediente" onclick="setNovFiltro('expediente')">Expediente</button>
     </div>
     <div id="detail-novedades"></div>
   </div>
@@ -311,15 +407,15 @@
   <!-- VISTA: pericial contable (puntos periciales + liquidaciones, agregadas de todos los documentos) -->
   <div id="view-pericial" class="hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
-      <button class="btn btn-ghost btn-small" id="btn-volver-detalle">← Volver al expediente</button>
-      <button class="btn btn-ghost btn-small" id="btn-toggle-resolver-ia" type="button" onclick="toggleModoResolverIA()">🤖 Resolver con IA</button>
+      <button class="btn btn-ghost btn-small" id="btn-volver-detalle">← Expediente</button>
+      <button class="btn btn-ghost btn-small" id="btn-toggle-resolver-ia" type="button" onclick="toggleModoResolverIA()">Resolver con IA</button>
     </div>
     <div id="pericial-content"></div>
   </div>
 
   <!-- VISTA: desglose del cálculo de una liquidación puntual -->
   <div id="view-liquidacion" class="hidden">
-    <button class="btn btn-ghost btn-small" id="btn-volver-pericial" style="margin-bottom:18px;">← Volver a Pericial Contable</button>
+    <button class="btn btn-ghost btn-small" id="btn-volver-pericial" style="margin-bottom:16px;">← Pericial contable</button>
     <div id="liquidacion-content"></div>
   </div>
 </div>
@@ -338,9 +434,9 @@
 
     <div class="ai-box" id="ai-box">
       <label>Completar automáticamente con IA (opcional)</label>
-      <textarea id="ai-texto" rows="3" placeholder="Pegá acá el texto del oficio, cédula o expediente…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <textarea id="ai-texto" rows="3" placeholder="Pegá acá el texto del oficio, cédula o expediente…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="file" id="ai-archivo" accept="image/*,application/pdf" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">
+        <input type="file" id="ai-archivo" accept="image/*,application/pdf" style="font-size:11.5px;">
         <button class="btn btn-ghost btn-small" id="btn-ai-analizar" type="button">Analizar y completar campos</button>
       </div>
       <div id="ai-status" class="hint" style="margin:6px 0 0;"></div>
@@ -369,7 +465,7 @@
     </div>
     <div class="field">
       <label>Resumen del expediente (opcional)</label>
-      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — o generalo con el botón de arriba" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-family:'Source Serif 4',serif;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
+      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — o generalo con el botón de arriba" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
     </div>
     <div class="field-row">
       <div class="field">
@@ -401,10 +497,10 @@
 <!-- PANTALLA: ingreso de PIN (gate de sesión, pantalla completa) -->
 <div id="config-overlay" class="hidden">
   <div class="modal-box login-box">
-    <div class="eyebrow">Libro de novedades</div>
-    <h2>Registro de Pericias Contables</h2>
-    <p class="hint">Ingresá el PIN para acceder a los datos. No hace falta usuario ni email.</p>
-    <div class="field"><label>PIN</label><input class="mono" id="cfg-pin" type="password" placeholder="••••••" autocomplete="off"></div>
+    <div class="brand-mark login-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div>
+    <h2>Pericias contables</h2>
+    <p class="hint">Ingresá el PIN del equipo para ver los expedientes.</p>
+    <div class="field"><label>PIN</label><input class="mono" id="cfg-pin" type="password" inputmode="numeric" placeholder="••••••" autocomplete="off"></div>
     <div id="pin-error" class="hint" style="color:var(--alert);display:none;">PIN incorrecto. Probá de nuevo.</div>
     <div class="modal-actions">
       <div class="left"></div>
@@ -782,7 +878,7 @@ async function connectAndLoad(){
   setLoginStatus('Conectando con ' + config.owner + '/' + config.repo + '…');
   try{
     pericias = await ghLoad();
-    setConn('ok', 'Conectado a ' + config.owner + '/' + config.repo + ' (rama ' + config.branch + ')');
+    setConn('ok', 'Sincronizado');
     closePinPrompt();
     showApp();
     renderAll();
@@ -808,10 +904,10 @@ function persist(message){
 }
 async function persistAhora(message){
   saving = true;
-  setConn('warn', 'Guardando en GitHub…');
+  setConn('warn', 'Guardando…');
   try{
     const combinado = await ghSave(pericias, message);
-    setConn('ok', 'Conectado a ' + config.owner + '/' + config.repo + ' · guardado ✓');
+    setConn('ok', 'Guardado');
     if(combinado){
       renderConScroll();
       mostrarToast('Guardado ✓ · se sumaron cambios hechos desde otra compu');
@@ -928,14 +1024,14 @@ function populateFilters(){
   const organismoSel = document.getElementById('filter-organismo');
   const estadoSel = document.getElementById('filter-estado');
   const currentContador = contadorSel.value;
-  contadorSel.innerHTML = '<option value="">Todos los contadores</option>' + CONTADORES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  contadorSel.innerHTML = '<option value="">Contador: todos</option>' + CONTADORES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   contadorSel.value = currentContador;
   const currentOrganismo = organismoSel.value;
   const organismos = [...new Set(pericias.map(p => p.juzgado).filter(Boolean))].sort();
-  organismoSel.innerHTML = '<option value="">Todos los organismos</option>' + organismos.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+  organismoSel.innerHTML = '<option value="">Organismo: todos</option>' + organismos.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
   organismoSel.value = currentOrganismo;
   if(estadoSel.options.length <= 1){
-    estadoSel.innerHTML = '<option value="">Todos los estados</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
+    estadoSel.innerHTML = '<option value="">Estado: todos</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
   }
 }
 
@@ -944,9 +1040,9 @@ function renderStats(){
   const sinCobrar = pericias.filter(p => p.estado === 'Dictamen presentado pero no cobrada').length;
   const cobradas = pericias.filter(p => p.estado === 'Pericia Cobrada').length;
   document.getElementById('stats').innerHTML = `
-    <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">Pericias activas</div></div>
-    <div class="stat-card warn-stat"><div class="stat-num mono">${sinCobrar}</div><div class="stat-label">Dictamen presentado pero no cobrada</div></div>
-    <div class="stat-card"><div class="stat-num mono" style="color:var(--ok);">${cobradas}</div><div class="stat-label">Pericia Cobrada</div></div>
+    <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">pericias en total</div></div>
+    <div class="stat-card warn-stat"><div class="stat-num mono">${sinCobrar}</div><div class="stat-label">con dictamen presentado, sin cobrar</div></div>
+    <div class="stat-card"><div class="stat-num mono" style="color:var(--ok);">${cobradas}</div><div class="stat-label">cobradas</div></div>
   `;
 }
 
@@ -1004,6 +1100,18 @@ function getUltimaNovedad(p){
   return [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
 }
 
+function plazoInfo(p){
+  const fin = p.estado === 'Homologada / finalizada' || p.estado === 'Pericia Cobrada';
+  if(fin) return { clase:'plazo-sin', num:'✓', txt:'Finalizada', fecha:'' };
+  if(!p.vencimiento) return { clase:'plazo-sin', num:'—', txt:'Sin plazo', fecha:'' };
+  const d = daysUntil(p.vencimiento);
+  const fecha = new Date(p.vencimiento + 'T00:00:00').toLocaleDateString('es-AR', {day:'numeric', month:'short'}).replace('.', '');
+  const clase = venciClass(p.vencimiento, p.estado);
+  if(d < 0) return { clase, num: Math.abs(d), txt: Math.abs(d) === 1 ? 'día vencida' : 'días vencida', fecha };
+  if(d === 0) return { clase, num:'Hoy', txt:'vence', fecha };
+  return { clase, num: d, txt: d === 1 ? 'día' : 'días', fecha };
+}
+
 function renderList(){
   const list = getFiltered();
   const container = document.getElementById('list');
@@ -1012,7 +1120,7 @@ function renderList(){
     return;
   }
   if(pericias.length === 0){
-    container.innerHTML = `<div class="empty">Todavía no cargaste ninguna pericia.<br>Usá "+ Nueva pericia" para empezar el registro.</div>`;
+    container.innerHTML = `<div class="empty">Todavía no hay pericias cargadas. Tocá "Nueva pericia" para registrar la primera.</div>`;
     return;
   }
   if(list.length === 0){
@@ -1024,15 +1132,24 @@ function renderList(){
     const vClass = venciClass(p.vencimiento, p.estado);
     const isFinal = p.estado === 'Homologada / finalizada';
     const ultima = getUltimaNovedad(p);
+    const plazo = plazoInfo(p);
     return `
-      <article class="ficha" data-tab-label="${escapeHtml(ESTADO_ABBR[p.estado] || p.estado)}" style="--tab-color:${color}">
-        ${isFinal ? '<div class="stamp">HOMOLOGADA</div>' : ''}
+      <article class="ficha" style="--tab-color:${color}">
         <div class="ficha-header" onclick="location.hash = 'p/' + '${p.id}'">
-          <div class="expediente">EXPTE.<br>${escapeHtml(p.expediente || 's/n°')}</div>
-          <div class="caratula">${escapeHtml(p.caratula || '(sin carátula cargada)')}<span class="juzgado-mini">${escapeHtml(p.juzgado || '')}</span>${ultima ? `<span class="ultimo-acontecimiento">Último acontecimiento: <span class="ultimo-fecha">${fmtDate(ultima.fecha)}</span> — ${escapeHtml(truncarTexto(ultima.texto, 140))}</span>` : ''}</div>
-          <div class="badge-contador">${escapeHtml(p.contador || '—')}</div>
-          <div class="estado-pill" style="background:${color}">${escapeHtml(p.estado)}</div>
-          <div class="vencimiento ${vClass}"><span class="lbl">Vencimiento</span>${fmtDate(p.vencimiento)}</div>
+          <div class="plazo ${plazo.clase}" title="Vencimiento: ${fmtDate(p.vencimiento)}">
+            <span class="plazo-num">${plazo.num}</span>
+            <span class="plazo-txt">${plazo.txt}</span>
+            ${plazo.fecha ? `<span class="plazo-fecha">${plazo.fecha}</span>` : ''}
+          </div>
+          <div style="min-width:0;">
+            <div class="caratula">${escapeHtml(p.caratula || '(sin carátula cargada)')}</div>
+            <div class="ficha-meta"><span class="expte">Expte. ${escapeHtml(p.expediente || 's/n°')}</span>${p.juzgado ? `<span>${escapeHtml(p.juzgado)}</span>` : ''}</div>
+            ${ultima ? `<span class="ultimo-acontecimiento"><span class="ultimo-fecha">${fmtDate(ultima.fecha)}</span> — ${escapeHtml(truncarTexto(ultima.texto, 160))}</span>` : ''}
+          </div>
+          <div class="ficha-side">
+            <div class="estado-pill" style="--estado:${color}">${escapeHtml(p.estado)}</div>
+            <div class="badge-contador">${escapeHtml(p.contador || 'Sin contador asignado')}</div>
+          </div>
         </div>
       </article>
     `;
@@ -1073,7 +1190,7 @@ function renderRoute(){
     viewPericial.classList.remove('hidden');
     modoResolverIA = false;
     const btnToggle = document.getElementById('btn-toggle-resolver-ia');
-    if(btnToggle) btnToggle.textContent = '🤖 Resolver con IA';
+    if(btnToggle) btnToggle.textContent = 'Resolver con IA';
     renderPericial(p);
   } else if(route.view === 'detail'){
     const p = pericias.find(x => x.id === route.id);
@@ -1267,15 +1384,15 @@ function renderDetail(p){
   const contestacionDoc = documentos.find(d => (d.tipo_documento || '').toLowerCase().includes('contestaci'));
   const otrosDocumentos = documentos.filter(d => d !== contestacionDoc);
 
-  const tabDemanda = 'DESIGNACIÓN · EXPEDIENTE';
-  const tabContestacion = `${escapeHtml((contestacionDoc && contestacionDoc.tipo_documento || 'CONTESTACIÓN DE DEMANDA').toUpperCase())} · ${contestacionDoc ? fmtDate(contestacionDoc.fecha) : ''}`;
+  const tabDemanda = 'Designación';
+  const tabContestacion = `${escapeHtml(contestacionDoc && contestacionDoc.tipo_documento || 'Contestación de demanda')} · ${contestacionDoc ? fmtDate(contestacionDoc.fecha) : ''}`;
 
   const vistaContestacionHtml = contestacionDoc ? `
     <div id="vista-contestacion" class="hidden">
       <button class="doc-toggle doc-toggle-left" id="btn-doc-toggle-left" onclick="toggleContestacionView()" title="Volver a la demanda">←</button>
       <span class="contestacion-tag">${escapeHtml(contestacionDoc.tipo_documento || 'Contestación de demanda')}</span>
       <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
-      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')} · ${fmtDate(contestacionDoc.fecha)}</div>
+      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · Expte. ${escapeHtml(p.expediente || 's/n°')} · ${fmtDate(contestacionDoc.fecha)}</div>
       ${renderDatosClaveGrid(contestacionDoc.datos_clave)}
       ${contestacionDoc.resumen
         ? `<div class="resumen" style="${(contestacionDoc.datos_clave||[]).length ? '' : 'border-top:none;padding-top:0;margin-top:0;'}">${escapeHtml(contestacionDoc.resumen).replace(/\n/g,'<br>')}</div>`
@@ -1290,11 +1407,11 @@ function renderDetail(p){
       <div id="vista-demanda">
         ${contestacionDoc ? `<button class="doc-toggle doc-toggle-right" id="btn-doc-toggle-right" onclick="toggleContestacionView()" title="Ver contestación de demanda">→</button>` : ''}
         <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
-        <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · EXPTE. ${escapeHtml(p.expediente || 's/n°')}</div>
+        <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · Expte. ${escapeHtml(p.expediente || 's/n°')}</div>
         <div class="ficha-madre-grid">
           <div><span class="lbl">Perito contador designado</span>${escapeHtml(p.contador || '—')}</div>
           <div><span class="lbl">Fecha de designación</span>${fmtDate(p.fecha_designacion)}</div>
-          <div><span class="lbl">Estado actual</span><span class="estado-pill" style="background:${color};display:inline-block;">${escapeHtml(p.estado)}</span></div>
+          <div><span class="lbl">Estado actual</span><span class="estado-pill" style="--estado:${color}">${escapeHtml(p.estado)}</span></div>
           <div><span class="lbl">Próximo vencimiento</span><span class="${vClass}">${fmtDate(p.vencimiento)}</span></div>
         </div>
         ${renderDatosClaveGrid(p.datos_clave)}
@@ -1309,7 +1426,7 @@ function renderDetail(p){
   `;
 
   document.getElementById('detail-documentos').innerHTML = otrosDocumentos.map(doc => `
-    <div class="ficha-madre ficha-documento" id="bloque-doc-${doc.id}" data-tab-label="${escapeHtml((doc.tipo_documento || 'Documento').toUpperCase())} · ${fmtDate(doc.fecha)}">
+    <div class="ficha-madre ficha-documento" id="bloque-doc-${doc.id}" data-tab-label="${escapeHtml(doc.tipo_documento || 'Documento')} · ${fmtDate(doc.fecha)}">
       <div class="doc-actions">
         <button class="nov-del" onclick="deleteDocumento('${p.id}','${doc.id}')">Eliminar</button>
       </div>
@@ -1399,7 +1516,7 @@ function renderNovedadesList(p){
     return `
         <article class="nov-card" id="bloque-nov-${n.id}" data-tab-label="${fmtDate(n.fecha)}" style="--tab-color:${esPersonal ? 'var(--teal)' : 'var(--brass)'};">
           <button class="nov-del" onclick="deleteNovedad('${p.id}','${n.id}')">Eliminar</button>
-          <span class="nov-tag ${esPersonal ? 'nov-tag-personal' : 'nov-tag-expediente'}">${esPersonal ? '🖊 Anotaciones' : '📄 Expediente'}</span>
+          <span class="nov-tag ${esPersonal ? 'nov-tag-personal' : 'nov-tag-expediente'}">${esPersonal ? 'Anotación' : 'Expediente'}</span>
           <div class="nov-texto">${escapeHtml(n.texto)}</div>
         </article>
       `;
@@ -1470,7 +1587,7 @@ function fileToBase64(file){
 function toggleModoResolverIA(){
   modoResolverIA = !modoResolverIA;
   const btn = document.getElementById('btn-toggle-resolver-ia');
-  if(btn) btn.textContent = modoResolverIA ? '✕ Cerrar resolver con IA' : '🤖 Resolver con IA';
+  if(btn) btn.textContent = modoResolverIA ? 'Cerrar resolver con IA' : 'Resolver con IA';
   const route = currentRoute();
   const p = pericias.find(x => x.id === route.id);
   if(p) renderPericial(p);
@@ -1865,16 +1982,16 @@ function renderAiPreview(){
   const d = pendingDocPrincipal;
   preview.classList.remove('hidden');
   preview.innerHTML = `
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:8px;">${escapeHtml(d.tipo_documento)} · ${fmtDate(d.fecha)}</div>
+    <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:8px;">${escapeHtml(d.tipo_documento)} · ${fmtDate(d.fecha)}</div>
     ${renderDatosClaveGrid(d.datos_clave)}
     <div style="font-size:14px;line-height:1.5;margin-top:10px;">${escapeHtml(d.resumen)}</div>
     ${(function(){
       const html = buildPuntosPericialesHtml(d.puntos_periciales, d.postura_pericial, d.puntos_periciales_modo, d.puntos_periciales_partes);
       if(!html) return '';
       const etiqueta = d.postura_pericial ? 'Postura sobre la prueba pericial' : 'Puntos periciales detectados';
-      return `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">${etiqueta}</span>${html}</div>`;
+      return `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">${etiqueta}</span>${html}</div>`;
     })()}
-    ${d.liquidacion && d.liquidacion.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Liquidación detectada</span><table class="liq-table">${d.liquidacion.map(r=>`<tr><td>${escapeHtml(r.rubro||'')}</td><td>${escapeHtml(r.monto||'')}</td></tr>`).join('')}</table></div>` : ''}
+    ${d.liquidacion && d.liquidacion.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Liquidación detectada</span><table class="liq-table">${d.liquidacion.map(r=>`<tr><td>${escapeHtml(r.rubro||'')}</td><td>${escapeHtml(r.monto||'')}</td></tr>`).join('')}</table></div>` : ''}
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-brass btn-small" onclick="confirmarDocumentoPrincipal()">Agregar como documento principal</button>
       <button class="btn btn-ghost btn-small" onclick="tratarComoNovedadSimple()">Tratar como novedad simple</button>
