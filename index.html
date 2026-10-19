@@ -288,6 +288,31 @@
   #sync-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;box-shadow:var(--shadow-pop);z-index:61;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
   #sync-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+  /* ===== Barra lateral (compu) ===== */
+  .side-nav{display:none;}
+  @media (min-width:1000px){
+    #app{max-width:none;margin:0;padding:0;display:grid;grid-template-columns:264px minmax(0,1fr);min-height:100vh;}
+    #app.hidden{display:none !important;}
+    .sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:2px;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px 16px;}
+    .sidebar .masthead,.sidebar .masthead-actions{display:contents;}
+    .sidebar .brand{order:0;padding:0 6px 18px;}
+    .sidebar #btn-nueva{order:1;width:100%;margin-bottom:14px;padding:10px 16px;}
+    .sidebar .side-nav{order:2;display:flex;flex-direction:column;gap:1px;}
+    .sidebar #btn-config{order:3;margin-top:auto;width:100%;}
+    .main{max-width:1040px;width:100%;margin:0 auto;padding:28px 32px 96px;}
+    /* Lo que ya está en la barra lateral no se repite arriba del listado */
+    #filter-plazo,#filter-estado,#filter-contador{display:none;}
+  }
+  .side-group{font-size:12.5px;font-weight:600;color:var(--faint);padding:16px 10px 6px;}
+  .side-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:7px;padding:7px 10px;font-size:14px;color:var(--ink);cursor:pointer;line-height:1.3;}
+  .side-item:hover{background:var(--fill);}
+  .side-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .side-item.active .side-n{color:var(--accent);}
+  .side-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .side-n{font-size:12.5px;color:var(--faint);font-variant-numeric:tabular-nums;}
+  .side-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .side-todas{font-weight:600;}
+
   /* ===== Celular ===== */
   @media (max-width:760px){
     #app{padding:14px 14px 96px;}
@@ -319,6 +344,7 @@
 </head>
 <body>
 <div id="app" class="hidden">
+  <aside class="sidebar">
   <div class="masthead">
     <div class="brand">
       <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div>
@@ -332,6 +358,9 @@
       <button class="btn btn-brass" id="btn-nueva">Nueva pericia</button>
     </div>
   </div>
+  <nav class="side-nav" id="side-nav" aria-label="Filtros"></nav>
+  </aside>
+  <main class="main">
 
 
   <!-- VISTA: listado principal -->
@@ -340,6 +369,12 @@
 
     <div class="controls">
       <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
+      <select id="filter-plazo">
+        <option value="">Plazo: todos</option>
+        <option value="vencidas">Vencidas</option>
+        <option value="semana">Vencen en 7 días</option>
+        <option value="sinplazo">Sin plazo cargado</option>
+      </select>
       <select id="filter-contador"><option value="">Contador: todos</option></select>
       <select id="filter-organismo"><option value="">Organismo: todos</option></select>
       <select id="filter-estado"><option value="">Estado: todos</option></select>
@@ -418,6 +453,7 @@
     <button class="btn btn-ghost btn-small" id="btn-volver-pericial" style="margin-bottom:16px;">← Pericial contable</button>
     <div id="liquidacion-content"></div>
   </div>
+  </main>
 </div>
 
 <!-- MODAL: nueva/editar pericia -->
@@ -1052,7 +1088,9 @@ function getFiltered(){
   const organismo = document.getElementById('filter-organismo').value;
   const estado = document.getElementById('filter-estado').value;
   const sortBy = document.getElementById('sort-by').value;
+  const plazo = document.getElementById('filter-plazo').value;
   let list = pericias.filter(p => {
+    if(plazo && grupoPlazo(p) !== plazo) return false;
     if(contador && p.contador !== contador) return false;
     if(organismo && p.juzgado !== organismo) return false;
     if(estado && p.estado !== estado) return false;
@@ -1100,8 +1138,60 @@ function getUltimaNovedad(p){
   return [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
 }
 
+function esFinalizada(p){ return p.estado === 'Homologada / finalizada' || p.estado === 'Pericia Cobrada'; }
+// 'vencidas' | 'semana' | 'sinplazo' | 'luego' | 'finalizada'
+function grupoPlazo(p){
+  if(esFinalizada(p)) return 'finalizada';
+  if(!p.vencimiento) return 'sinplazo';
+  const d = daysUntil(p.vencimiento);
+  if(d < 0) return 'vencidas';
+  if(d <= 7) return 'semana';
+  return 'luego';
+}
+
+/* ---------- Barra lateral (filtros rápidos con conteo) ---------- */
+function renderSideNav(){
+  const nav = document.getElementById('side-nav');
+  if(!nav) return;
+  const sel = id => document.getElementById(id).value;
+  const contar = fn => pericias.filter(fn).length;
+  const item = (filtro, valor, texto, n, extra) => {
+    const activo = sel(filtro) === valor;
+    return `<button type="button" class="side-item${activo ? ' active' : ''}" title="${escapeHtml(texto)}" onclick="aplicarFiltroLateral('${filtro}', ${JSON.stringify(valor).replace(/"/g, '&quot;')})">${extra || ''}<span class="side-txt">${escapeHtml(texto)}</span><span class="side-n">${n}</span></button>`;
+  };
+  const sinFiltros = !sel('filter-plazo') && !sel('filter-estado') && !sel('filter-contador') && !sel('filter-organismo') && !document.getElementById('search').value.trim();
+  const plazos = [
+    ['vencidas', 'Vencidas', 'var(--alert)'],
+    ['semana', 'Vencen en 7 días', 'var(--warn)'],
+    ['sinplazo', 'Sin plazo cargado', 'var(--slate)'],
+  ];
+  const estados = Object.keys(ESTADO_COLOR).filter(e => pericias.some(p => p.estado === e));
+  const contadores = CONTADORES.filter(c => pericias.some(p => p.contador === c));
+  nav.innerHTML = `
+    <button type="button" class="side-item side-todas${sinFiltros && currentRoute().view === 'list' ? ' active' : ''}" onclick="limpiarFiltros()"><span class="side-txt">Todas las pericias</span><span class="side-n">${pericias.length}</span></button>
+    <div class="side-group">Plazos</div>
+    ${plazos.map(([v, t, c]) => item('filter-plazo', v, t, contar(p => grupoPlazo(p) === v), `<span class="side-dot" style="background:${c}"></span>`)).join('')}
+    ${estados.length ? `<div class="side-group">Estado</div>` : ''}
+    ${estados.map(e => item('filter-estado', e, e, contar(p => p.estado === e), `<span class="side-dot" style="background:${ESTADO_COLOR[e]}"></span>`)).join('')}
+    ${contadores.length ? `<div class="side-group">Contador</div>` : ''}
+    ${contadores.map(c => item('filter-contador', c, c, contar(p => p.contador === c))).join('')}
+  `;
+}
+function aplicarFiltroLateral(filtroId, valor){
+  const el = document.getElementById(filtroId);
+  el.value = el.value === valor ? '' : valor; // tocar el activo lo desactiva
+  if(currentRoute().view !== 'list'){ location.hash = ''; } else { renderList(); }
+  window.scrollTo(0, 0);
+}
+function limpiarFiltros(){
+  ['filter-plazo','filter-estado','filter-contador','filter-organismo'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('search').value = '';
+  if(currentRoute().view !== 'list'){ location.hash = ''; } else { renderList(); }
+  window.scrollTo(0, 0);
+}
+
 function plazoInfo(p){
-  const fin = p.estado === 'Homologada / finalizada' || p.estado === 'Pericia Cobrada';
+  const fin = esFinalizada(p);
   if(fin) return { clase:'plazo-sin', num:'✓', txt:'Finalizada', fecha:'' };
   if(!p.vencimiento) return { clase:'plazo-sin', num:'—', txt:'Sin plazo', fecha:'' };
   const d = daysUntil(p.vencimiento);
@@ -1113,6 +1203,7 @@ function plazoInfo(p){
 }
 
 function renderList(){
+  renderSideNav();
   const list = getFiltered();
   const container = document.getElementById('list');
   if(!config){
@@ -2264,6 +2355,8 @@ document.getElementById('filter-contador').addEventListener('change', renderList
 document.getElementById('filter-organismo').addEventListener('change', renderList);
 document.getElementById('filter-estado').addEventListener('change', renderList);
 document.getElementById('sort-by').addEventListener('change', renderList);
+document.getElementById('filter-plazo').addEventListener('change', renderList);
+window.addEventListener('hashchange', renderSideNav);
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeForm(); });
 document.getElementById('btn-config').addEventListener('click', lockApp);
 document.getElementById('btn-entrar-pin').addEventListener('click', submitPin);
