@@ -1,0 +1,2320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Pericias Contables</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F4F5F7">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pericias">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== Tokens =====
+     Claro y sobrio. Un solo acento: azul tinta (el de la firma del perito).
+     Rojo / ámbar / verde solo para plazos y estados. */
+  :root{
+    --bg:#F4F5F7;          /* fondo de página */
+    --surface:#FFFFFF;     /* superficies */
+    --fill:#EEF0F3;        /* rellenos sutiles */
+    --ink:#171A20;         /* texto principal */
+    --muted:#5E6573;       /* texto secundario */
+    --faint:#8D93A0;       /* texto terciario */
+    --line:#E3E5EA;        /* bordes */
+    --line-strong:#CDD1D9;
+    --accent:#1F4E79;      /* azul tinta */
+    --accent-hover:#173C5E;
+    --accent-soft:#E8EFF6;
+    --alert:#C0392B; --alert-soft:#FBEDEB;
+    --warn:#B26B00;  --warn-soft:#FDF3E3;
+    --ok:#2D7A55;    --ok-soft:#E9F4EE;
+    --teal:#2C7385;  --teal-soft:#E6F2F4;
+    --slate:#8D93A0;
+
+    /* Alias de los nombres viejos (los usa el código y algunos estilos en línea) */
+    --paper:var(--bg); --paper-2:var(--fill);
+    --folder:var(--accent); --folder-dark:var(--ink);
+    --brass:var(--accent); --brass-dark:var(--accent-hover);
+    --white-ish:var(--surface);
+
+    --radius:10px; --radius-sm:7px;
+    --shadow:0 1px 2px rgba(23,26,32,.05);
+    --shadow-pop:0 18px 50px rgba(23,26,32,.18);
+    --font:'Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  button,input,select,textarea{font-family:inherit;color:inherit;}
+  .mono{font-variant-numeric:tabular-nums;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .hidden{display:none !important;}
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important;animation:none !important;} }
+
+  #app{max-width:1080px;margin:0 auto;padding:20px 24px 96px;}
+
+  /* ===== Barra superior ===== */
+  .masthead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:6px 0 22px;}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand-mark{width:36px;height:36px;border-radius:9px;background:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .brand-mark svg{width:20px;height:20px;}
+  .masthead h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.2;}
+  .eyebrow{display:none;}
+  .masthead-actions{display:flex;gap:8px;}
+
+  .conn-bar{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin:2px 0 0;padding:0;background:none;border:none;}
+  .conn-bar .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--faint);}
+  .conn-ok .dot{background:var(--ok);}
+  .conn-warn .dot{background:var(--warn);}
+  .conn-error{color:var(--alert);} .conn-error .dot{background:var(--alert);}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  /* ===== Botones ===== */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;border:1px solid transparent;border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;line-height:1.2;transition:background .12s ease,border-color .12s ease,color .12s ease;white-space:nowrap;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-brass{background:var(--accent);color:#fff;}
+  .btn-brass:hover:not(:disabled){background:var(--accent-hover);}
+  .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong);}
+  .btn-ghost:hover:not(:disabled){background:var(--fill);}
+  .btn-alert{background:var(--surface);color:var(--alert);border-color:#EBC4BE;}
+  .btn-alert:hover:not(:disabled){background:var(--alert-soft);}
+  .btn-small{padding:7px 12px;font-size:13px;}
+
+  /* ===== Resumen (stats) ===== */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px;box-shadow:var(--shadow);}
+  .stat-card{padding:14px 18px;display:flex;align-items:baseline;gap:12px;border:none;background:none;}
+  .stat-card + .stat-card{border-left:1px solid var(--line);}
+  .stat-num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--ink);line-height:1;}
+  .stat-label{font-size:13px;color:var(--muted);line-height:1.3;}
+  .stat-card.alert-stat .stat-num{color:var(--alert);}
+  .stat-card.warn-stat .stat-num{color:var(--warn);}
+
+  /* ===== Filtros ===== */
+  .controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .controls input,.controls select{font-size:14px;padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);min-height:40px;}
+  .controls select{cursor:pointer;max-width:100%;}
+  #search{flex:1 1 260px;min-width:200px;padding-left:36px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238D93A0' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3 3'/%3E%3C/svg%3E") no-repeat 12px center;}
+
+  /* ===== Listado: una sola superficie con filas ===== */
+  #list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  #list:has(> .empty){background:none;border:none;box-shadow:none;}
+  .empty{text-align:center;padding:56px 20px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface);}
+
+  .ficha{position:relative;background:none;border:none;border-radius:0;box-shadow:none;}
+  .ficha + .ficha{border-top:1px solid var(--line);}
+  .ficha::before{content:none;}
+  .stamp{display:none;}
+  .ficha-header{display:grid;grid-template-columns:92px minmax(0,1fr) 210px;align-items:center;gap:20px;padding:16px 20px 16px 0;cursor:pointer;transition:background .1s ease;}
+  .ficha-header:hover{background:#FAFBFC;}
+
+  /* Plazo: el dato que más importa a un perito, primero y grande */
+  .plazo{align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-right:1px solid var(--line);padding:2px 6px;color:var(--muted);}
+  .plazo-num{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em;}
+  .plazo-txt{font-size:12px;margin-top:4px;line-height:1.2;}
+  .plazo-fecha{font-size:11.5px;color:var(--faint);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .plazo.venc-alert{color:var(--alert);} .plazo.venc-warn{color:var(--warn);} .plazo.venc-ok{color:var(--ink);}
+  .plazo.plazo-sin{color:var(--faint);} .plazo.plazo-sin .plazo-num{font-size:20px;font-weight:500;}
+
+  .caratula{font-size:15.5px;font-weight:600;line-height:1.35;color:var(--ink);}
+  .ficha-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin-top:3px;}
+  .ficha-meta .expte{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500;}
+  .ultimo-acontecimiento{display:block;font-size:13px;color:var(--muted);margin-top:6px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .ultimo-acontecimiento .ultimo-fecha{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .ficha-side{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;}
+  .badge-contador{font-size:13px;color:var(--muted);background:none;padding:0;text-align:left;}
+
+  /* Estado: punto de color + texto, sin bloque de color pesado */
+  .estado-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink) !important;background:none !important;padding:0;border-radius:0;text-align:left;line-height:1.3;}
+  .estado-pill::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--estado,var(--slate));flex-shrink:0;}
+
+  .vencimiento{font-size:13px;font-variant-numeric:tabular-nums;}
+  .vencimiento .lbl{display:block;font-size:12px;color:var(--muted);}
+  .venc-ok{color:var(--ink);} .venc-warn{color:var(--warn);font-weight:600;} .venc-alert{color:var(--alert);font-weight:600;}
+
+  .ficha-body{border-top:1px solid var(--line);padding:18px 20px 22px;display:none;}
+  .ficha-body.open{display:block;}
+  .ficha-actions{display:flex;gap:8px;margin-bottom:18px;}
+
+  /* ===== Títulos de sección ===== */
+  .timeline-title{font-size:17px;font-weight:700;color:var(--ink);margin:0 0 12px;letter-spacing:-.01em;}
+  .timeline{list-style:none;margin:0 0 16px;padding:0;}
+  .no-novedades{color:var(--muted);font-size:14px;padding:18px;border:1px dashed var(--line-strong);border-radius:var(--radius);text-align:center;}
+
+  /* ===== Modales ===== */
+  #modal-overlay{position:fixed;inset:0;background:rgba(23,26,32,.42);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px);}
+  #modal-overlay.hidden{display:none;}
+  .modal-box{background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px 26px 20px;box-shadow:var(--shadow-pop);}
+  .modal-box h2{margin:0 0 16px;font-size:20px;font-weight:700;letter-spacing:-.01em;}
+  .modal-box p.hint{margin:0 0 18px;font-size:14px;color:var(--muted);line-height:1.5;}
+  .hint{font-size:13px;color:var(--muted);}
+
+  #config-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  #config-overlay.hidden{display:none;}
+  .login-box{max-width:380px;width:100%;text-align:left;box-shadow:var(--shadow-pop);padding:30px 30px 24px;}
+  .login-box .login-mark{margin-bottom:18px;}
+  .login-box h2{font-size:22px;margin:0 0 6px;}
+  .login-box .field{text-align:left;}
+  .login-box .field input{font-size:20px;letter-spacing:.3em;text-align:center;padding:12px;}
+  .login-box .modal-actions .left{display:none;}
+  .login-box .modal-actions .right{width:100%;}
+  .login-box .modal-actions .btn{width:100%;padding:12px;}
+  .login-conn{font-size:12.5px;color:var(--muted);margin-top:14px;min-height:16px;text-align:center;}
+
+  /* ===== Detalle del expediente ===== */
+  .ficha-madre{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px 22px;margin-bottom:0;box-shadow:var(--shadow);}
+  .ficha-madre::before{content:attr(data-tab-label);display:block;font-size:12.5px;font-weight:600;color:var(--accent);margin:0 0 10px;}
+  .ficha-madre.ficha-documento::before{color:var(--muted);}
+  @keyframes resaltarBloque{0%,60%{box-shadow:0 0 0 3px var(--accent-soft),0 0 0 4px var(--accent);}100%{box-shadow:var(--shadow);}}
+  .resaltado{animation:resaltarBloque 2.2s ease-out;}
+  .ficha-madre h2{margin:0 0 4px;font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-.015em;max-width:60ch;}
+  .ficha-madre .juzgado-line{font-size:14px;color:var(--muted);margin-bottom:18px;font-variant-numeric:tabular-nums;}
+  .ficha-madre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px 22px;margin-bottom:16px;}
+  .ficha-madre-grid > div{font-size:14.5px;font-weight:500;font-variant-numeric:tabular-nums;min-width:0;}
+  .ficha-madre-grid .lbl{display:block;font-size:12.5px;font-weight:400;color:var(--muted);margin-bottom:2px;}
+  .ficha-madre .resumen{font-size:15px;line-height:1.6;border-top:1px solid var(--line);padding-top:16px;margin-top:4px;max-width:75ch;}
+  #detail-documentos{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+  .ficha-documento .doc-actions{position:absolute;top:16px;right:18px;display:flex;gap:8px;}
+  .ficha-madre-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
+
+  .doc-toggle{position:absolute;top:18px;right:18px;transform:none;width:34px;height:34px;border-radius:50%;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .12s ease;z-index:2;}
+  .doc-toggle:hover{background:var(--fill);}
+  .doc-toggle-right{right:18px;}
+  .doc-toggle-left{right:18px;left:auto;}
+  .contestacion-tag{display:none;}
+  #vista-demanda h2,#vista-contestacion h2{padding-right:46px;}
+
+  /* ===== Pericial contable ===== */
+  .pericial-bloque{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .pericial-bloque h3{margin:0 0 14px;font-size:17px;font-weight:700;letter-spacing:-.01em;}
+  .pericial-bloque h3 .fuente{color:var(--muted);font-weight:500;}
+  .puntos-list{list-style:none;margin:0;padding:0;counter-reset:punto;}
+  .puntos-list li{counter-increment:punto;position:relative;padding:12px 0 14px 38px;font-size:15px;line-height:1.55;border-bottom:1px solid var(--line);}
+  .puntos-list li::before{content:counter(punto);position:absolute;left:0;top:12px;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .puntos-list li:last-child{border-bottom:none;}
+  .pericial-parte{border-left:3px solid var(--accent-soft);padding-left:16px;margin-bottom:18px;}
+  .pericial-parte:last-child{margin-bottom:0;}
+  .pericial-parte-nombre{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+  .puntos-acciones{display:flex;gap:8px;margin:-4px 0 14px;flex-wrap:wrap;}
+  .punto-texto{margin-bottom:8px;}
+  .respuesta-label{font-size:12.5px;color:var(--muted);margin-bottom:4px;}
+  .respuesta-ia{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);font-size:14.5px;line-height:1.5;background:var(--bg);resize:vertical;min-height:52px;}
+  .respuesta-ia:focus{background:var(--surface);}
+  .pericial-sin{font-size:14px;color:var(--muted);}
+  .liq-table{width:100%;border-collapse:collapse;font-size:15px;}
+  .liq-table td{padding:10px 6px;border-bottom:1px solid var(--line);}
+  .liq-table td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:500;}
+  .liq-table tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700;padding-top:12px;}
+  .liq-table td.clickable{cursor:pointer;}
+  .liq-table tr.clickable-row:hover td{background:var(--fill);}
+  .calculo-item{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;}
+  .calculo-item .rubro{font-weight:600;font-size:15.5px;display:flex;justify-content:space-between;gap:12px;}
+  .calculo-item .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .calculo-item .detalle{margin-top:8px;font-size:14.5px;line-height:1.55;color:var(--ink);}
+  .calculo-item .sin-detalle{margin-top:8px;font-size:14px;color:var(--muted);}
+  .pericial-empty{color:var(--muted);font-size:14.5px;padding:28px;text-align:center;border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface);}
+  #liquidacion-content h2{font-size:22px;font-weight:700;letter-spacing:-.015em;margin:0 0 2px;}
+
+  .archivo-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:4px 5px 4px 12px;margin:0 6px 6px 0;font-size:13px;}
+  .archivo-chip .archivo-tam{color:var(--muted);}
+  .archivo-chip button{background:var(--fill);border:none;border-radius:50%;width:20px;height:20px;line-height:1;cursor:pointer;color:var(--muted);font-size:11px;padding:0;}
+  .archivo-chip button:hover{background:var(--alert);color:#fff;}
+  .archivos-resumen{font-size:13px;color:var(--muted);margin-bottom:8px;}
+  .archivos-resumen.archivos-alerta{color:var(--alert);}
+  .archivos-resumen.archivos-warn{color:var(--warn);}
+  .btn-vaciar-archivos{background:none;border:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px;margin-left:8px;}
+
+  /* ===== Novedades ===== */
+  #detail-novedades{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  #detail-novedades:has(> .no-novedades){background:none;border:none;box-shadow:none;}
+  .nov-card{position:relative;display:grid;grid-template-columns:96px minmax(0,1fr);column-gap:18px;background:none;border:none;border-radius:0;padding:14px 84px 14px 20px;margin:0;}
+  .nov-card + .nov-card{border-top:1px solid var(--line);}
+  .nov-card::before{content:attr(data-tab-label);grid-column:1;grid-row:1 / span 2;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);padding-top:1px;}
+  .nov-card .nov-tag{grid-column:2;justify-self:start;}
+  .nov-card .nov-texto{grid-column:2;font-size:15px;line-height:1.55;}
+  .nov-card .nov-del{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:5px;}
+  .nov-card .nov-del:hover{color:var(--alert);background:var(--alert-soft);}
+  .nov-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:5px;}
+  .nov-del:hover{color:var(--alert);background:var(--alert-soft);}
+  .nov-tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;margin-bottom:5px;}
+  .nov-tag-personal{background:var(--teal-soft);color:var(--teal);}
+  .nov-tag-expediente{background:var(--accent-soft);color:var(--accent);}
+
+  .nov-filter{display:inline-flex;gap:2px;margin-bottom:12px;padding:3px;background:var(--fill);border-radius:9px;}
+  .nov-filter-btn{font-size:13px;font-weight:600;background:transparent;border:none;color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer;}
+  .nov-filter-btn:hover{color:var(--ink);}
+  .nov-filter-btn.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(23,26,32,.12);}
+
+  .add-novedad{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;}
+  .add-novedad input[type=date]{font-size:14px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);min-height:40px;font-variant-numeric:tabular-nums;}
+  .add-novedad textarea{flex:1 1 260px;font-size:15px;padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);resize:vertical;min-height:40px;line-height:1.45;}
+  .add-novedad-tipo{flex:1 1 100%;display:flex;align-items:center;gap:10px;}
+  .add-novedad-tipo .nov-origen-toggle{margin:0;}
+  .nov-origen-toggle{display:inline-flex;gap:2px;padding:3px;background:var(--fill);border-radius:9px;margin-bottom:8px;}
+  .nov-origen-btn{font-size:13px;font-weight:600;background:transparent;border:none;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;}
+  .nov-origen-btn.active[data-origen="personal"]{background:var(--surface);color:var(--teal);box-shadow:0 1px 2px rgba(23,26,32,.12);}
+  .nov-origen-btn.active[data-origen="expediente"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(23,26,32,.12);}
+
+  /* ===== Cajas de IA ===== */
+  .ai-box{background:var(--accent-soft);border:1px solid #D3E0EC;border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;}
+  .ai-box label{display:block;font-size:14px;font-weight:600;color:var(--accent);margin-bottom:8px;}
+  .ai-box textarea,.ai-box input[type=text]{background:var(--surface) !important;border-color:#C9D6E3 !important;border-radius:var(--radius-sm) !important;}
+  input[type=file]{font-size:13px;color:var(--muted);}
+  input[type=file]::file-selector-button{font:inherit;font-weight:600;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:7px 12px;margin-right:10px;cursor:pointer;}
+
+  /* ===== Formularios ===== */
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);min-height:42px;}
+  .field input:focus,.field select:focus,.field textarea:focus,.add-novedad textarea:focus,.controls input:focus,.controls select:focus,.respuesta-ia:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .field textarea{background:var(--surface) !important;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;min-width:0;}
+  .modal-actions{display:flex;justify-content:space-between;margin-top:22px;gap:10px;}
+  .modal-actions .right{display:flex;gap:8px;}
+
+  /* ===== Navegación de vistas ===== */
+  #view-detail > div:first-child, #view-pericial > div:first-child{margin-bottom:16px !important;}
+
+  /* ===== Sincronización entre compus ===== */
+  #sync-pill{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;border:none;border-radius:999px;padding:11px 18px;font-size:14px;box-shadow:var(--shadow-pop);cursor:pointer;z-index:60;max-width:calc(100% - 32px);}
+  #sync-pill.hidden{display:none;}
+  #sync-pill .sync-accion{color:#9EC3E6;font-weight:700;margin-left:10px;}
+  #sync-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;box-shadow:var(--shadow-pop);z-index:61;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+  #sync-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ===== Celular ===== */
+  @media (max-width:760px){
+    #app{padding:14px 14px 96px;}
+    .masthead{padding-bottom:16px;}
+    .masthead-actions{width:100%;}
+    .masthead-actions .btn{flex:1;}
+    .stat-card{flex-direction:column;gap:3px;padding:11px 12px;}
+    .stat-num{font-size:22px;}
+    .stat-label{font-size:12px;}
+    .controls select{flex:1 1 calc(50% - 4px);min-width:0;}
+    .add-novedad textarea{flex-basis:100%;}
+    .add-novedad .btn{margin-left:auto;}
+    .ficha-header{grid-template-columns:72px minmax(0,1fr);gap:14px;padding:14px 16px 14px 0;}
+    .ficha-side{grid-column:2;flex-direction:row;flex-wrap:wrap;gap:4px 14px;}
+    .plazo{grid-row:1 / span 2;}
+    .plazo-num{font-size:24px;}
+    .ficha-madre{padding:18px 18px 20px;}
+    .ficha-madre h2{font-size:19px;}
+    .ficha-madre-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;}
+    .pericial-bloque{padding:18px;}
+    .nov-card{grid-template-columns:1fr;padding:14px 70px 14px 16px;}
+    .nov-card::before{grid-row:auto;margin-bottom:4px;}
+    .nov-card .nov-tag,.nov-card .nov-texto{grid-column:1;}
+    .field-row{flex-direction:column;gap:0;}
+    .modal-box{padding:20px 18px 18px;border-radius:14px;}
+    #modal-overlay{padding:10px;align-items:flex-end;}
+  }
+</style>
+</head>
+<body>
+<div id="app" class="hidden">
+  <div class="masthead">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div>
+      <div>
+        <h1>Pericias contables</h1>
+        <div id="conn-bar" class="conn-bar conn-warn"><span class="dot"></span><span id="conn-text">Conectando…</span></div>
+      </div>
+    </div>
+    <div class="masthead-actions">
+      <button class="btn btn-ghost" id="btn-config">Bloquear</button>
+      <button class="btn btn-brass" id="btn-nueva">Nueva pericia</button>
+    </div>
+  </div>
+
+
+  <!-- VISTA: listado principal -->
+  <div id="view-list">
+    <div class="stats" id="stats"></div>
+
+    <div class="controls">
+      <input id="search" type="text" placeholder="Buscar por expediente, carátula o contador…">
+      <select id="filter-contador"><option value="">Contador: todos</option></select>
+      <select id="filter-organismo"><option value="">Organismo: todos</option></select>
+      <select id="filter-estado"><option value="">Estado: todos</option></select>
+      <select id="sort-by">
+        <option value="reciente" selected>Orden: más reciente</option>
+        <option value="vencimiento">Orden: vencimiento</option>
+        <option value="expediente">Orden: n° de expediente</option>
+        <option value="alfabetico">Orden: carátula A–Z</option>
+      </select>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <!-- VISTA: detalle de un juicio -->
+  <div id="view-detail" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+      <button class="btn btn-ghost btn-small" id="btn-volver">← Listado</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-small" id="btn-buscar">Buscar en el expediente</button>
+        <button class="btn btn-brass btn-small" id="btn-pericial">Pericial contable</button>
+      </div>
+    </div>
+    <div id="buscar-box" class="ai-box hidden" style="margin-bottom:18px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="buscar-input" placeholder="Ej: aceptación del cargo" style="flex:1;min-width:200px;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);">
+        <button class="btn btn-brass btn-small" id="btn-buscar-ir">Buscar</button>
+      </div>
+      <div id="buscar-status" class="hint" style="margin:8px 0 0;"></div>
+    </div>
+    <div id="detail-header"></div>
+    <div id="detail-documentos"></div>
+
+    <div class="ai-box" id="detail-ai-box" style="margin-top:24px;">
+      <label>Analizar un nuevo documento con IA (contestación, ampliación, cédula, resolución, etc.)</label>
+      <textarea id="detail-ai-texto" rows="3" placeholder="Pegá acá el texto del nuevo documento…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="detail-ai-archivo" accept="image/*,application/pdf" style="font-size:11.5px;">
+        <button class="btn btn-ghost btn-small" id="btn-detail-ai-analizar" type="button">Analizar y completar novedad</button>
+      </div>
+      <div id="detail-ai-status" class="hint" style="margin:6px 0 0;"></div>
+      <div id="detail-ai-preview" class="hidden" style="margin-top:14px;border-top:1px dashed var(--brass);padding-top:14px;"></div>
+    </div>
+
+    <div class="timeline-title" style="margin-top:28px;">Novedades</div>
+    <div class="add-novedad" style="margin-bottom:16px;">
+      <div class="add-novedad-tipo">
+      <div class="nov-origen-toggle" id="nov-origen-toggle">
+        <button type="button" class="nov-origen-btn active" data-origen="personal" onclick="setNovOrigenManual('personal')">Nota personal</button>
+        <button type="button" class="nov-origen-btn" data-origen="expediente" onclick="setNovOrigenManual('expediente')">Del expediente</button>
+      </div>
+      </div>
+      <input type="date" id="detail-nov-fecha" value="">
+      <textarea id="detail-nov-texto" placeholder="Anotar novedad: presentación, observación, llamado del juzgado…" oninput="onNovTextoInput()"></textarea>
+      <button class="btn btn-brass" id="btn-detail-agregar">Agregar</button>
+    </div>
+    <div class="nov-filter" id="nov-filter">
+      <button type="button" class="nov-filter-btn active" data-filtro="todas" onclick="setNovFiltro('todas')">Todas</button>
+      <button type="button" class="nov-filter-btn" data-filtro="personal" onclick="setNovFiltro('personal')">Anotaciones</button>
+      <button type="button" class="nov-filter-btn" data-filtro="expediente" onclick="setNovFiltro('expediente')">Expediente</button>
+    </div>
+    <div id="detail-novedades"></div>
+  </div>
+
+  <!-- VISTA: pericial contable (puntos periciales + liquidaciones, agregadas de todos los documentos) -->
+  <div id="view-pericial" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+      <button class="btn btn-ghost btn-small" id="btn-volver-detalle">← Expediente</button>
+      <button class="btn btn-ghost btn-small" id="btn-toggle-resolver-ia" type="button" onclick="toggleModoResolverIA()">Resolver con IA</button>
+    </div>
+    <div id="pericial-content"></div>
+  </div>
+
+  <!-- VISTA: desglose del cálculo de una liquidación puntual -->
+  <div id="view-liquidacion" class="hidden">
+    <button class="btn btn-ghost btn-small" id="btn-volver-pericial" style="margin-bottom:16px;">← Pericial contable</button>
+    <div id="liquidacion-content"></div>
+  </div>
+</div>
+
+<!-- MODAL: nueva/editar pericia -->
+<div id="modal-overlay" class="hidden">
+  <div class="modal-box">
+    <h2 id="modal-title">Nueva pericia</h2>
+    <input type="hidden" id="f-id">
+    <input type="hidden" id="f-datos-clave">
+    <input type="hidden" id="f-puntos-periciales">
+    <input type="hidden" id="f-puntos-periciales-modo">
+    <input type="hidden" id="f-puntos-periciales-partes">
+    <input type="hidden" id="f-postura-pericial">
+    <input type="hidden" id="f-liquidacion">
+
+    <div class="ai-box" id="ai-box">
+      <label>Completar automáticamente con IA (opcional)</label>
+      <textarea id="ai-texto" rows="3" placeholder="Pegá acá el texto del oficio, cédula o expediente…" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:var(--paper);resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="ai-archivo" accept="image/*,application/pdf" style="font-size:11.5px;">
+        <button class="btn btn-ghost btn-small" id="btn-ai-analizar" type="button">Analizar y completar campos</button>
+      </div>
+      <div id="ai-status" class="hint" style="margin:6px 0 0;"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>N° de expediente</label><input id="f-expediente" placeholder="12345/2026"></div>
+      <div class="field"><label>Contador a cargo</label>
+        <select id="f-contador">
+          <option value="">Seleccionar…</option>
+          <option value="Garate, Alejandra">Garate, Alejandra</option>
+          <option value="Malzone, Roxana">Malzone, Roxana</option>
+          <option value="Iogha, Romina">Iogha, Romina</option>
+          <option value="Giovanetti, Marcela">Giovanetti, Marcela</option>
+          <option value="Cebrero, Luciana">Cebrero, Luciana</option>
+          <option value="Salvanhac, Daniela">Salvanhac, Daniela</option>
+          <option value="Morettini, Gabriela">Morettini, Gabriela</option>
+          <option value="Mendiguren, María Marta">Mendiguren, María Marta</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Carátula / partes</label><input id="f-caratula" placeholder="Pérez, Juan c/ López, Ana s/ Daños y Perjuicios"></div>
+    <div class="field"><label>Juzgado / fuero</label>
+      <select id="f-juzgado"></select>
+      <input id="f-juzgado-otro" class="hidden mono" style="margin-top:8px;" placeholder="Escribí el juzgado/fuero completo">
+    </div>
+    <div class="field">
+      <label>Resumen del expediente (opcional)</label>
+      <textarea id="f-resumen" rows="4" placeholder="Pegá acá el resumen del caso — o generalo con el botón de arriba" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;font-size:14.5px;background:var(--paper);resize:vertical;"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Estado actual</label>
+        <select id="f-estado">
+          <option>Designada / aceptación pendiente</option>
+          <option>Cargo aceptado</option>
+          <option>En elaboración</option>
+          <option>Presentada</option>
+          <option>Observada / impugnada</option>
+          <option>Contestación de impugnaciones</option>
+          <option>Homologada / finalizada</option>
+          <option>Dictamen presentado pero no cobrada</option>
+          <option>Pericia Cobrada</option>
+        </select>
+      </div>
+      <div class="field"><label>Próximo vencimiento</label><input id="f-vencimiento" type="date"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="left"><button class="btn btn-alert" id="btn-eliminar" style="display:none;">Eliminar pericia</button></div>
+      <div class="right"><button class="btn btn-ghost" id="btn-cancelar">Cancelar</button><button class="btn btn-brass" id="btn-guardar">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
+<button id="sync-pill" class="hidden" type="button" onclick="aplicarCambiosRemotos(true)">🔄 Hay cambios nuevos de otra compu<span class="sync-accion">Actualizar</span></button>
+<div id="sync-toast"></div>
+
+<!-- PANTALLA: ingreso de PIN (gate de sesión, pantalla completa) -->
+<div id="config-overlay" class="hidden">
+  <div class="modal-box login-box">
+    <div class="brand-mark login-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div>
+    <h2>Pericias contables</h2>
+    <p class="hint">Ingresá el PIN del equipo para ver los expedientes.</p>
+    <div class="field"><label>PIN</label><input class="mono" id="cfg-pin" type="password" inputmode="numeric" placeholder="••••••" autocomplete="off"></div>
+    <div id="pin-error" class="hint" style="color:var(--alert);display:none;">PIN incorrecto. Probá de nuevo.</div>
+    <div class="modal-actions">
+      <div class="left"></div>
+      <div class="right" style="width:100%;justify-content:center;"><button class="btn btn-brass" id="btn-entrar-pin">Entrar</button></div>
+    </div>
+    <div class="login-conn" id="login-conn-text"></div>
+  </div>
+</div>
+
+<script>
+const CONTADORES = ['Garate, Alejandra', 'Malzone, Roxana', 'Iogha, Romina', 'Giovanetti, Marcela', 'Cebrero, Luciana', 'Salvanhac, Daniela', 'Morettini, Gabriela', 'Mendiguren, María Marta'];
+
+const JUZGADOS_GRUPOS = [
+  { grupo: 'Cámaras', items: [
+    'Cámara Civil y Comercial - Presidencia',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 1ra',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 2da',
+    'Cámara de Apelación en lo Civil y Comercial - Sala 3ra',
+    'Cámara de Apelación en lo Contencioso Administrativo',
+  ]},
+  { grupo: 'Juzgados Civil y Comercial', items: Array.from({length:16}, (_,i) => `Juzgado Civil y Comercial N° ${i+1}`) },
+  { grupo: 'Contencioso Administrativo', items: [
+    'Juzgado Contencioso Administrativo N° 1',
+    'Juzgado Contencioso Administrativo N° 2',
+  ]},
+  { grupo: 'Otros', items: ['Secretaria de Apremios'] },
+  { grupo: 'Tribunales de Trabajo', items: Array.from({length:5}, (_,i) => `Tribunal de Trabajo N° ${i+1}`) },
+];
+const JUZGADOS = JUZGADOS_GRUPOS.flatMap(g => g.items);
+
+function poblarSelectJuzgado(){
+  const sel = document.getElementById('f-juzgado');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Seleccionar…</option>' +
+    JUZGADOS_GRUPOS.map(g => `<optgroup label="${escapeHtml(g.grupo)}">${g.items.map(j => `<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join('')}</optgroup>`).join('') +
+    '<option value="__otro__">Otro / no está en la lista…</option>';
+}
+
+function normalizarTextoJuzgado(s){
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[°º.]/g,'').replace(/\s+/g,' ').trim();
+}
+
+// Interpreta texto libre (ej. "Trib. de Trabajo 2", "Juz. Civ y Com N°4") y busca la opción fija equivalente.
+function matchJuzgado(textoLibre){
+  if(!textoLibre) return '';
+  const t = normalizarTextoJuzgado(textoLibre);
+
+  const exacto = JUZGADOS.find(j => normalizarTextoJuzgado(j) === t);
+  if(exacto) return exacto;
+
+  const numMatch = t.match(/(\d+)/);
+  const numero = numMatch ? numMatch[1] : null;
+
+  const esCamara = /camara/.test(t);
+  const esTrabajo = /trabaj/.test(t);
+  const esContencioso = /contencios/.test(t);
+  const esApremio = /apremio/.test(t);
+  const esCivilComercial = /civ/.test(t) && /com/.test(t) && !esContencioso && !esTrabajo;
+  const esPresidencia = /presidencia/.test(t);
+  const salaMatch = t.match(/sala\s*(1ra|2da|3ra|primera|segunda|tercera|\d)/);
+
+  if(esApremio) return 'Secretaria de Apremios';
+
+  if(esCamara){
+    if(esContencioso) return 'Cámara de Apelación en lo Contencioso Administrativo';
+    if(esPresidencia && !salaMatch) return 'Cámara Civil y Comercial - Presidencia';
+    if(salaMatch){
+      const salaMap = {'1':'1ra','1ra':'1ra','primera':'1ra','2':'2da','2da':'2da','segunda':'2da','3':'3ra','3ra':'3ra','tercera':'3ra'};
+      const salaNum = salaMap[salaMatch[1]];
+      if(salaNum) return `Cámara de Apelación en lo Civil y Comercial - Sala ${salaNum}`;
+    }
+    return '';
+  }
+
+  if(numero){
+    let candidato = '';
+    if(esTrabajo) candidato = `Tribunal de Trabajo N° ${numero}`;
+    else if(esContencioso) candidato = `Juzgado Contencioso Administrativo N° ${numero}`;
+    else if(esCivilComercial) candidato = `Juzgado Civil y Comercial N° ${numero}`;
+    if(candidato){
+      const encontrado = JUZGADOS.find(j => normalizarTextoJuzgado(j) === normalizarTextoJuzgado(candidato));
+      if(encontrado) return encontrado;
+    }
+  }
+
+  return '';
+}
+
+function setJuzgadoValue(textoLibre){
+  const sel = document.getElementById('f-juzgado');
+  const otro = document.getElementById('f-juzgado-otro');
+  if(!sel || !otro) return;
+  const match = matchJuzgado(textoLibre);
+  if(match){
+    sel.value = match;
+    otro.value = '';
+    otro.classList.add('hidden');
+  } else if(textoLibre){
+    sel.value = '__otro__';
+    otro.value = textoLibre;
+    otro.classList.remove('hidden');
+  } else {
+    sel.value = '';
+    otro.value = '';
+    otro.classList.add('hidden');
+  }
+}
+
+function getJuzgadoValue(){
+  const sel = document.getElementById('f-juzgado');
+  if(!sel) return '';
+  if(sel.value === '__otro__') return document.getElementById('f-juzgado-otro').value.trim();
+  return sel.value;
+}
+
+const DATA_PATH = 'pericias.json';
+const CONFIG_FILE = 'config.enc.json';
+const SESSION_KEY = 'gh-pericias-session';
+let pericias = [];
+let modoResolverIA = false; // false = vista simple de puntos periciales (como antes); true = modo edición con IA
+let currentSha = null;
+let basePericias = []; // última versión confirmada en GitHub (base para combinar cambios simultáneos)
+let config = null; // { owner, repo, branch, token } — solo en memoria/sessionStorage, nunca en disco
+let saving = false;
+
+const ESTADO_COLOR = {
+  'Designada / aceptación pendiente': 'var(--slate)',
+  'Cargo aceptado': 'var(--brass)',
+  'En elaboración': 'var(--teal)',
+  'Presentada': 'var(--ok)',
+  'Observada / impugnada': 'var(--alert)',
+  'Contestación de impugnaciones': 'var(--warn)',
+  'Homologada / finalizada': 'var(--folder-dark)',
+  'Dictamen presentado pero no cobrada': 'var(--warn)',
+  'Pericia Cobrada': 'var(--ok)',
+};
+const ESTADO_ABBR = {
+  'Designada / aceptación pendiente': 'Designada',
+  'Cargo aceptado': 'Cargo aceptado',
+  'En elaboración': 'En elaboración',
+  'Presentada': 'Presentada',
+  'Observada / impugnada': 'Observada',
+  'Contestación de impugnaciones': 'Contest. impugnaciones',
+  'Homologada / finalizada': 'Finalizada',
+  'Dictamen presentado pero no cobrada': 'Dictamen sin cobrar',
+  'Pericia Cobrada': 'Cobrada',
+};
+
+function uid(){ return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+
+/* ---------- Unicode-safe base64 helpers ---------- */
+function utf8ToB64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64ToUtf8(b64){
+  const bin = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/* ---------- Cifrado (PBKDF2 + AES-GCM) ---------- */
+function b64ToBytes(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+async function deriveKey(pin, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256'},
+    keyMaterial, {name:'AES-GCM', length:256}, false, ['decrypt']
+  );
+}
+async function decryptConfig(pin, blob){
+  const salt = b64ToBytes(blob.salt);
+  const iv = b64ToBytes(blob.iv);
+  const data = b64ToBytes(blob.data);
+  const key = await deriveKey(pin, salt, blob.iterations);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, data); // lanza error si el PIN es incorrecto
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+// Clave separada (misma sal, distinta cadena de origen) usada para cifrar los DATOS de las pericias,
+// no solo el token. Así, aunque alguien acceda al archivo pericias.json directamente, ve solo texto cifrado.
+async function deriveDataKey(pin, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin + '::datos'), {name:'PBKDF2'}, false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256'},
+    keyMaterial, {name:'AES-GCM', length:256}, true, ['encrypt','decrypt']
+  );
+  const raw = await crypto.subtle.exportKey('raw', key);
+  return b64FromBytes(new Uint8Array(raw));
+}
+function b64FromBytes(bytes){
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+async function importDataKey(dataKeyB64){
+  return crypto.subtle.importKey('raw', b64ToBytes(dataKeyB64), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function encryptData(dataKeyB64, obj){
+  const key = await importDataKey(dataKeyB64);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, plaintext);
+  return JSON.stringify({ enc: true, iv: b64FromBytes(iv), data: b64FromBytes(new Uint8Array(cipherBuf)) });
+}
+async function decryptData(dataKeyB64, jsonText){
+  let parsed;
+  try{ parsed = JSON.parse(jsonText); }catch(e){ throw new Error('Archivo de datos inválido.'); }
+  if(Array.isArray(parsed)) return parsed; // formato viejo sin cifrar (migración automática al primer guardado)
+  if(!parsed || !parsed.enc) throw new Error('Archivo de datos con formato desconocido.');
+  const key = await importDataKey(dataKeyB64);
+  const iv = b64ToBytes(parsed.iv);
+  const data = b64ToBytes(parsed.data);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, data);
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+let encryptedBlob = null;
+async function fetchEncryptedConfig(){
+  if(encryptedBlob) return encryptedBlob;
+  const res = await fetch(CONFIG_FILE + '?t=' + Date.now());
+  if(!res.ok) throw new Error('No se encontró config.enc.json en el repositorio.');
+  encryptedBlob = await res.json();
+  return encryptedBlob;
+}
+
+/* ---------- Sesión (sessionStorage: se borra al cerrar el navegador) ---------- */
+function loadSessionConfig(){
+  try{
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    config = raw ? JSON.parse(raw) : null;
+  }catch(e){ config = null; }
+}
+function saveSessionConfig(c){
+  config = c;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(c));
+}
+function clearSession(){
+  config = null;
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function setConn(state, text){
+  const bar = document.getElementById('conn-bar');
+  bar.className = 'conn-bar conn-' + state;
+  document.getElementById('conn-text').textContent = text;
+}
+
+/* ---------- GitHub API ---------- */
+function ghHeaders(){
+  return {
+    'Authorization': 'Bearer ' + config.token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+}
+function ghUrl(){
+  return `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${DATA_PATH}`;
+}
+
+// Trae la versión actual de GitHub sin tocar el estado de la app.
+async function ghFetchRemote(){
+  const res = await fetch(`${ghUrl()}?ref=${encodeURIComponent(config.branch)}&t=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
+  if(res.status === 404) return { sha:null, data:[] };
+  if(res.status === 401 || res.status === 403) throw new Error('AUTH');
+  if(!res.ok) throw new Error('HTTP_' + res.status);
+  const json = await res.json();
+  const rawText = b64ToUtf8(json.content);
+  return { sha: json.sha, data: await decryptData(config.dataKey, rawText) };
+}
+
+async function ghLoad(){
+  const remote = await ghFetchRemote();
+  currentSha = remote.sha;
+  basePericias = clonar(remote.data);
+  return remote.data;
+}
+
+/* ---------- Combinación de cambios simultáneos (3 vías: base / mío / remoto) ----------
+   Si otra compu guardó mientras yo editaba, GitHub rechaza mi guardado (409).
+   En vez de perder el cambio, se trae lo remoto, se combina campo por campo
+   (y por id en listas como pericias, novedades y documentos) y se vuelve a guardar.
+   Solo si los dos editaron exactamente el mismo campo gana el último que guarda. */
+function clonar(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
+function iguales(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+function esObjetoPlano(x){ return x !== null && typeof x === 'object' && !Array.isArray(x); }
+function esListaConIds(x){ return Array.isArray(x) && x.length > 0 && x.every(e => esObjetoPlano(e) && e.id !== undefined); }
+
+function merge3(base, mio, remoto){
+  if(iguales(mio, remoto)) return mio;
+  if(iguales(base, mio)) return remoto;
+  if(iguales(base, remoto)) return mio;
+  // Ambos cambiaron
+  if(esObjetoPlano(mio) && esObjetoPlano(remoto)){
+    const b = esObjetoPlano(base) ? base : {};
+    const out = {};
+    new Set([...Object.keys(mio), ...Object.keys(remoto), ...Object.keys(b)]).forEach(k => {
+      const v = merge3(b[k], mio[k], remoto[k]);
+      if(v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+  if(Array.isArray(mio) && Array.isArray(remoto)){
+    const b = Array.isArray(base) ? base : [];
+    if((esListaConIds(mio) || mio.length === 0) && (esListaConIds(remoto) || remoto.length === 0) && (esListaConIds(b) || b.length === 0)){
+      const porId = arr => new Map(arr.map(e => [e.id, e]));
+      const mb = porId(b), mm = porId(mio), mr = porId(remoto);
+      const orden = [...remoto.map(e => e.id), ...mio.map(e => e.id).filter(id => !mr.has(id))];
+      const out = [];
+      orden.forEach(id => {
+        const v = merge3(mb.get(id), mm.get(id), mr.get(id));
+        if(v !== undefined) out.push(v);
+      });
+      return out;
+    }
+    // Listas sin id (p. ej. respuestas a puntos periciales): posición por posición
+    const largo = Math.max(mio.length, remoto.length);
+    const out = [];
+    for(let i = 0; i < largo; i++) out.push(merge3(b[i], mio[i], remoto[i]));
+    return out;
+  }
+  return mio; // mismo dato editado en las dos compus: gana el último en guardar
+}
+
+async function ghPut(message){
+  const encryptedPayload = await encryptData(config.dataKey, pericias);
+  const body = { message, content: utf8ToB64(encryptedPayload), branch: config.branch };
+  if(currentSha) body.sha = currentSha;
+  return fetch(ghUrl(), { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+}
+
+// Devuelve true si tuvo que combinar con cambios de otra compu.
+async function ghSave(_data, message){
+  let combinado = false;
+  for(let intento = 0; intento < 4; intento++){
+    const res = await ghPut(message);
+    if(res.status === 401 || res.status === 403) throw new Error('AUTH');
+    if(res.status === 409 || res.status === 422){
+      const remoto = await ghFetchRemote();
+      pericias = merge3(basePericias, pericias, remoto.data);
+      basePericias = clonar(remoto.data);
+      currentSha = remoto.sha;
+      combinado = true;
+      continue;
+    }
+    if(!res.ok) throw new Error('HTTP_' + res.status);
+    const json = await res.json();
+    currentSha = json.content.sha;
+    basePericias = clonar(pericias);
+    return combinado;
+  }
+  throw new Error('CONFLICTO');
+}
+
+function showApp(){ document.getElementById('app').classList.remove('hidden'); }
+function hideApp(){ document.getElementById('app').classList.add('hidden'); }
+function setLoginStatus(text){ document.getElementById('login-conn-text').textContent = text || ''; }
+
+async function connectAndLoad(){
+  if(!config || !config.owner || !config.repo || !config.token){
+    hideApp();
+    openPinPrompt();
+    return;
+  }
+  setLoginStatus('Conectando con ' + config.owner + '/' + config.repo + '…');
+  try{
+    pericias = await ghLoad();
+    setConn('ok', 'Sincronizado');
+    closePinPrompt();
+    showApp();
+    renderAll();
+  }catch(e){
+    clearSession();
+    hideApp();
+    openPinPrompt();
+    const errorDiv = document.getElementById('pin-error');
+    if(e.message === 'AUTH'){
+      errorDiv.textContent = 'PIN incorrecto, o el token no tiene permisos sobre ese repositorio.';
+    } else {
+      errorDiv.textContent = 'No se pudo conectar (' + e.message + '). Revisá tu conexión e intentá de nuevo.';
+    }
+    errorDiv.style.display = 'block';
+  }
+}
+
+// Los guardados se encolan para que dos clics seguidos no se pisen entre sí.
+let colaGuardado = Promise.resolve();
+function persist(message){
+  colaGuardado = colaGuardado.then(() => persistAhora(message));
+  return colaGuardado;
+}
+async function persistAhora(message){
+  saving = true;
+  setConn('warn', 'Guardando…');
+  try{
+    const combinado = await ghSave(pericias, message);
+    setConn('ok', 'Guardado');
+    if(combinado){
+      renderConScroll();
+      mostrarToast('Guardado ✓ · se sumaron cambios hechos desde otra compu');
+    }
+    remotoPendiente = null; // lo guardado ya incluye todo lo remoto
+    ocultarPillSync();
+  }catch(e){
+    setConn('error', e.message === 'AUTH' ? 'Token inválido o expirado, no se pudo guardar.' : 'Error al guardar (' + e.message + ').');
+    alert('No se pudo guardar en GitHub. Revisá la configuración y volvé a intentar.');
+  }
+  saving = false;
+}
+
+/* ---------- Sincronización automática entre compus ----------
+   Cada 30 segundos (y al volver a la ventana) se consulta si alguien guardó algo.
+   Si estás en medio de algo (escribiendo, con un formulario abierto o en
+   "Resolver con IA") no se toca la pantalla: aparece un aviso para actualizar. */
+const SYNC_CADA_MS = 30000;
+let remotoPendiente = null;
+let chequeandoSync = false;
+
+function renderConScroll(){
+  const y = window.scrollY;
+  renderAll();
+  window.scrollTo(0, y);
+}
+function mostrarToast(texto){
+  const t = document.getElementById('sync-toast');
+  t.textContent = texto;
+  t.classList.add('show');
+  clearTimeout(mostrarToast._t);
+  mostrarToast._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function ocultarPillSync(){ document.getElementById('sync-pill').classList.add('hidden'); }
+
+function usuarioOcupado(){
+  if(saving) return true;
+  if(!document.getElementById('modal-overlay').classList.contains('hidden')) return true;
+  if(modoResolverIA) return true;
+  const a = document.activeElement;
+  if(a && a.closest && a.closest('#app') && (a.tagName === 'TEXTAREA' || a.isContentEditable || (a.tagName === 'INPUT' && a.type !== 'file' && a.id !== 'search'))) return true;
+  // Texto escrito y todavía no guardado en los cuadros de novedad / IA / búsqueda
+  const borradores = document.querySelectorAll('#app textarea, #view-detail input[type="text"]');
+  for(const el of borradores){ if(el.value && el.value !== el.defaultValue) return true; }
+  if(document.querySelector('#app input[type="file"]') && [...document.querySelectorAll('#app input[type="file"]')].some(f => f.files && f.files.length)) return true;
+  if(typeof archivosAcumulados === 'object' && archivosAcumulados && Object.values(archivosAcumulados).some(v => v && Object.keys(v).length)) return true;
+  return false;
+}
+
+function aplicarCambiosRemotos(forzar){
+  if(!remotoPendiente) return;
+  if(!forzar && usuarioOcupado()){
+    document.getElementById('sync-pill').classList.remove('hidden');
+    return;
+  }
+  if(saving) return; // se reintenta en el próximo chequeo
+  pericias = remotoPendiente.data;
+  basePericias = clonar(remotoPendiente.data);
+  currentSha = remotoPendiente.sha;
+  remotoPendiente = null;
+  ocultarPillSync();
+  if(forzar && modoResolverIA){ renderAll(); } else { renderConScroll(); }
+  mostrarToast('Actualizado con cambios de otra compu');
+}
+
+async function chequearCambiosRemotos(){
+  if(chequeandoSync || saving || !config || document.hidden) return;
+  if(document.getElementById('app').classList.contains('hidden')) return;
+  chequeandoSync = true;
+  try{
+    const remoto = await ghFetchRemote();
+    if(remoto.sha && remoto.sha !== currentSha && !saving){
+      remotoPendiente = remoto;
+      aplicarCambiosRemotos(false);
+    } else if(remotoPendiente && !usuarioOcupado()){
+      aplicarCambiosRemotos(false);
+    }
+  }catch(e){ /* sin conexión o error puntual: se reintenta en el próximo ciclo */ }
+  chequeandoSync = false;
+}
+setInterval(chequearCambiosRemotos, SYNC_CADA_MS);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) chequearCambiosRemotos(); });
+window.addEventListener('focus', chequearCambiosRemotos);
+window.addEventListener('online', chequearCambiosRemotos);
+
+/* ---------- Utilidades de fecha ---------- */
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr + 'T00:00:00');
+  return Math.round((target - today) / 86400000);
+}
+function fmtDate(dateStr){
+  if(!dateStr) return '—';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function venciClass(dateStr, estado){
+  if(estado === 'Homologada / finalizada' || !dateStr) return 'venc-ok';
+  const d = daysUntil(dateStr);
+  if(d < 0) return 'venc-alert';
+  if(d <= 7) return 'venc-warn';
+  return 'venc-ok';
+}
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+/* ---------- Render ---------- */
+function populateFilters(){
+  const contadorSel = document.getElementById('filter-contador');
+  const organismoSel = document.getElementById('filter-organismo');
+  const estadoSel = document.getElementById('filter-estado');
+  const currentContador = contadorSel.value;
+  contadorSel.innerHTML = '<option value="">Contador: todos</option>' + CONTADORES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  contadorSel.value = currentContador;
+  const currentOrganismo = organismoSel.value;
+  const organismos = [...new Set(pericias.map(p => p.juzgado).filter(Boolean))].sort();
+  organismoSel.innerHTML = '<option value="">Organismo: todos</option>' + organismos.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+  organismoSel.value = currentOrganismo;
+  if(estadoSel.options.length <= 1){
+    estadoSel.innerHTML = '<option value="">Estado: todos</option>' + Object.keys(ESTADO_COLOR).map(e => `<option value="${e}">${e}</option>`).join('');
+  }
+}
+
+function renderStats(){
+  const total = pericias.length;
+  const sinCobrar = pericias.filter(p => p.estado === 'Dictamen presentado pero no cobrada').length;
+  const cobradas = pericias.filter(p => p.estado === 'Pericia Cobrada').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num mono">${total}</div><div class="stat-label">pericias en total</div></div>
+    <div class="stat-card warn-stat"><div class="stat-num mono">${sinCobrar}</div><div class="stat-label">con dictamen presentado, sin cobrar</div></div>
+    <div class="stat-card"><div class="stat-num mono" style="color:var(--ok);">${cobradas}</div><div class="stat-label">cobradas</div></div>
+  `;
+}
+
+function getFiltered(){
+  const search = document.getElementById('search').value.trim().toLowerCase();
+  const contador = document.getElementById('filter-contador').value;
+  const organismo = document.getElementById('filter-organismo').value;
+  const estado = document.getElementById('filter-estado').value;
+  const sortBy = document.getElementById('sort-by').value;
+  let list = pericias.filter(p => {
+    if(contador && p.contador !== contador) return false;
+    if(organismo && p.juzgado !== organismo) return false;
+    if(estado && p.estado !== estado) return false;
+    if(search){
+      const blob = `${p.expediente} ${p.caratula} ${p.contador} ${p.juzgado}`.toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  if(sortBy === 'vencimiento'){
+    list.sort((a,b) => {
+      if(!a.vencimiento && !b.vencimiento) return 0;
+      if(!a.vencimiento) return 1;
+      if(!b.vencimiento) return -1;
+      return new Date(a.vencimiento) - new Date(b.vencimiento);
+    });
+  } else if(sortBy === 'reciente'){
+    list.sort((a,b) => new Date(ultimoMovimiento(b) || 0) - new Date(ultimoMovimiento(a) || 0));
+  } else if(sortBy === 'alfabetico'){
+    list.sort((a,b) => (a.caratula||'').localeCompare(b.caratula||'', 'es', {sensitivity:'base'}));
+  } else {
+    list.sort((a,b) => (a.expediente||'').localeCompare(b.expediente||'', undefined, {numeric:true}));
+  }
+  return list;
+}
+
+function ultimoMovimiento(p){
+  const fechas = [
+    ...(p.novedades || []).map(n => n.fecha),
+    ...(p.documentos || []).map(d => d.fecha),
+    p.fecha_designacion || ''
+  ].filter(Boolean);
+  if(fechas.length === 0) return '';
+  return fechas.reduce((max, f) => new Date(f) > new Date(max) ? f : max, fechas[0]);
+}
+
+function truncarTexto(texto, max){
+  const t = (texto || '').trim();
+  if(t.length <= max) return t;
+  return t.slice(0, max).trim() + '…';
+}
+
+function getUltimaNovedad(p){
+  if(!p.novedades || !p.novedades.length) return null;
+  return [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
+}
+
+function plazoInfo(p){
+  const fin = p.estado === 'Homologada / finalizada' || p.estado === 'Pericia Cobrada';
+  if(fin) return { clase:'plazo-sin', num:'✓', txt:'Finalizada', fecha:'' };
+  if(!p.vencimiento) return { clase:'plazo-sin', num:'—', txt:'Sin plazo', fecha:'' };
+  const d = daysUntil(p.vencimiento);
+  const fecha = new Date(p.vencimiento + 'T00:00:00').toLocaleDateString('es-AR', {day:'numeric', month:'short'}).replace('.', '');
+  const clase = venciClass(p.vencimiento, p.estado);
+  if(d < 0) return { clase, num: Math.abs(d), txt: Math.abs(d) === 1 ? 'día vencida' : 'días vencida', fecha };
+  if(d === 0) return { clase, num:'Hoy', txt:'vence', fecha };
+  return { clase, num: d, txt: d === 1 ? 'día' : 'días', fecha };
+}
+
+function renderList(){
+  const list = getFiltered();
+  const container = document.getElementById('list');
+  if(!config){
+    container.innerHTML = `<div class="empty">Configurá tu repositorio de GitHub (botón "⚙ Configuración") para empezar a cargar pericias.</div>`;
+    return;
+  }
+  if(pericias.length === 0){
+    container.innerHTML = `<div class="empty">Todavía no hay pericias cargadas. Tocá "Nueva pericia" para registrar la primera.</div>`;
+    return;
+  }
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty">No hay pericias que coincidan con la búsqueda o los filtros.</div>`;
+    return;
+  }
+  container.innerHTML = list.map(p => {
+    const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
+    const vClass = venciClass(p.vencimiento, p.estado);
+    const isFinal = p.estado === 'Homologada / finalizada';
+    const ultima = getUltimaNovedad(p);
+    const plazo = plazoInfo(p);
+    return `
+      <article class="ficha" style="--tab-color:${color}">
+        <div class="ficha-header" onclick="location.hash = 'p/' + '${p.id}'">
+          <div class="plazo ${plazo.clase}" title="Vencimiento: ${fmtDate(p.vencimiento)}">
+            <span class="plazo-num">${plazo.num}</span>
+            <span class="plazo-txt">${plazo.txt}</span>
+            ${plazo.fecha ? `<span class="plazo-fecha">${plazo.fecha}</span>` : ''}
+          </div>
+          <div style="min-width:0;">
+            <div class="caratula">${escapeHtml(p.caratula || '(sin carátula cargada)')}</div>
+            <div class="ficha-meta"><span class="expte">Expte. ${escapeHtml(p.expediente || 's/n°')}</span>${p.juzgado ? `<span>${escapeHtml(p.juzgado)}</span>` : ''}</div>
+            ${ultima ? `<span class="ultimo-acontecimiento"><span class="ultimo-fecha">${fmtDate(ultima.fecha)}</span> — ${escapeHtml(truncarTexto(ultima.texto, 160))}</span>` : ''}
+          </div>
+          <div class="ficha-side">
+            <div class="estado-pill" style="--estado:${color}">${escapeHtml(p.estado)}</div>
+            <div class="badge-contador">${escapeHtml(p.contador || 'Sin contador asignado')}</div>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderAll(){ populateFilters(); renderStats(); renderRoute(); }
+
+/* ---------- Ruteo (hash: '' = listado, 'p/ID' = detalle de un juicio) ---------- */
+function currentRoute(){
+  const hash = location.hash.replace(/^#/, '');
+  const mLiq = hash.match(/^p\/([^/]+)\/liquidacion\/([^/]+)$/);
+  if(mLiq) return { view:'liquidacion', id: mLiq[1], origen: decodeURIComponent(mLiq[2]) };
+  const mPericial = hash.match(/^p\/(.+)\/pericial$/);
+  if(mPericial) return { view:'pericial', id: mPericial[1] };
+  const m = hash.match(/^p\/(.+)$/);
+  return m ? { view:'detail', id: m[1] } : { view:'list' };
+}
+
+function renderRoute(){
+  const route = currentRoute();
+  const viewList = document.getElementById('view-list');
+  const viewDetail = document.getElementById('view-detail');
+  const viewPericial = document.getElementById('view-pericial');
+  const viewLiquidacion = document.getElementById('view-liquidacion');
+  const todas = [viewList, viewDetail, viewPericial, viewLiquidacion];
+
+  if(route.view === 'liquidacion'){
+    const p = pericias.find(x => x.id === route.id);
+    if(!p){ location.hash = ''; return; }
+    todas.forEach(v => v.classList.add('hidden'));
+    viewLiquidacion.classList.remove('hidden');
+    renderLiquidacionDetalle(p, route.origen);
+  } else if(route.view === 'pericial'){
+    const p = pericias.find(x => x.id === route.id);
+    if(!p){ location.hash = ''; return; }
+    todas.forEach(v => v.classList.add('hidden'));
+    viewPericial.classList.remove('hidden');
+    modoResolverIA = false;
+    const btnToggle = document.getElementById('btn-toggle-resolver-ia');
+    if(btnToggle) btnToggle.textContent = 'Resolver con IA';
+    renderPericial(p);
+  } else if(route.view === 'detail'){
+    const p = pericias.find(x => x.id === route.id);
+    if(!p){ location.hash = ''; return; }
+    todas.forEach(v => v.classList.add('hidden'));
+    viewDetail.classList.remove('hidden');
+    renderDetail(p);
+  } else {
+    todas.forEach(v => v.classList.add('hidden'));
+    viewList.classList.remove('hidden');
+    renderList();
+  }
+}
+
+/* ---------- Utilidad: parsear/formatear montos en formato AR ($1.234.567,89) ---------- */
+function parseMonto(str){
+  if(!str) return 0;
+  let s = String(str).replace(/[^\d.,\-]/g, '');
+  s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+function formatMonto(n){
+  return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function renderPuntoConRespuesta(texto, respuesta, periciaId, origen, parteIdx, puntoIdx){
+  return `
+    <li>
+      <div class="punto-texto">${escapeHtml(texto)}</div>
+      <div class="respuesta-label">Borrador de respuesta (editable)</div>
+      <textarea class="respuesta-ia" rows="2" placeholder="Se completa con &quot;Resolver puntos con IA&quot; o se puede escribir a mano…" onblur="guardarRespuestaPunto('${periciaId}','${origen}',${parteIdx},${puntoIdx},this.value)">${escapeHtml(respuesta || '')}</textarea>
+    </li>`;
+}
+
+function renderAccionesPuntos(periciaId, origen){
+  return `
+    <div class="puntos-acciones">
+      <button class="btn btn-ghost btn-small" type="button" onclick="toggleResolverIA('${origen}')">Resolver puntos con IA</button>
+      <button class="btn btn-ghost btn-small" type="button" id="btn-copiar-${origen}" onclick="copiarBorradorPuntos('${periciaId}','${origen}')">Copiar borrador</button>
+    </div>
+    <div class="ai-box hidden" id="resolver-panel-${origen}" style="margin:10px 0 16px;">
+      <label>Documentación contable (elegí archivos de a uno o varios — se van sumando, no se pisan)</label>
+      <input type="file" id="resolver-archivos-${origen}" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv" onchange="agregarArchivosAcumulados('${periciaId}','${origen}')">
+      <button class="btn btn-ghost btn-small" type="button" id="btn-resolver-${origen}" onclick="resolverPuntosConIA('${periciaId}','${origen}')" style="margin-left:8px;">Analizar y resolver</button>
+      <div id="resolver-lista-${origen}" style="margin-top:8px;"></div>
+      <div id="resolver-status-${origen}" class="hint" style="margin-top:6px;"></div>
+    </div>`;
+}
+
+/* Arma el HTML interno de un bloque de puntos periciales, SIN acciones ni
+   respuestas editables — se usa en la vista previa de IA antes de confirmar
+   un documento, cuando todavía no existe periciaId/origen para guardar nada. */
+function buildPuntosPericialesHtml(puntos, postura, modo, partes){
+  const tienePostura = postura && postura.trim();
+  if(tienePostura) return `<div class="pericial-sin">${escapeHtml(postura)}</div>`;
+
+  const tienePartes = modo === 'separado' && Array.isArray(partes) && partes.some(g => Array.isArray(g.puntos) && g.puntos.length);
+  if(tienePartes){
+    return partes.filter(g => Array.isArray(g.puntos) && g.puntos.length).map(g => `
+      <div class="pericial-parte">
+        <div class="pericial-parte-nombre">${escapeHtml(g.parte || 'Parte sin nombre')}</div>
+        <ol class="puntos-list">${g.puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>
+      </div>`).join('');
+  }
+
+  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+  if(tienePuntos) return `<ol class="puntos-list">${puntos.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}</ol>`;
+
+  return '';
+}
+
+/* Bloque real de "Puntos periciales" en la vista Pericial Contable: incluye el
+   botón "Resolver puntos con IA" (analiza documentación contable subida y
+   redacta un borrador de respuesta para cada punto), el botón para copiar el
+   borrador completo, y cada punto con su respuesta editable a mano. */
+function renderPuntosPericialesBloque(fuente, puntos, postura, modo, partes, respuestasFlat, periciaId, origen){
+  const tienePostura = postura && postura.trim();
+  const tienePartes = modo === 'separado' && Array.isArray(partes) && partes.some(g => Array.isArray(g.puntos) && g.puntos.length);
+  const tienePuntos = Array.isArray(puntos) && puntos.length > 0;
+  if(!tienePostura && !tienePartes && !tienePuntos) return '';
+
+  if(!modoResolverIA){
+    // Vista simple, tal como estaba antes: solo la lista de puntos, sin acciones ni respuestas editables.
+    const cuerpoSimple = buildPuntosPericialesHtml(puntos, postura, modo, partes);
+    if(!cuerpoSimple) return '';
+    return `
+      <div class="pericial-bloque">
+        <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
+        ${cuerpoSimple}
+      </div>`;
+  }
+
+  let cuerpo, acciones = '';
+  if(tienePostura){
+    cuerpo = `<div class="pericial-sin">${escapeHtml(postura)}</div>`;
+  } else if(tienePartes){
+    cuerpo = partes.map((g, gi) => {
+      if(!Array.isArray(g.puntos) || !g.puntos.length) return '';
+      return `
+        <div class="pericial-parte">
+          <div class="pericial-parte-nombre">${escapeHtml(g.parte || 'Parte sin nombre')}</div>
+          <ol class="puntos-list">${g.puntos.map((pt, pi) => renderPuntoConRespuesta(pt, g.respuestas && g.respuestas[pi], periciaId, origen, gi, pi)).join('')}</ol>
+        </div>`;
+    }).join('');
+    acciones = renderAccionesPuntos(periciaId, origen);
+  } else {
+    cuerpo = `<ol class="puntos-list">${puntos.map((pt, pi) => renderPuntoConRespuesta(pt, respuestasFlat && respuestasFlat[pi], periciaId, origen, -1, pi)).join('')}</ol>`;
+    acciones = renderAccionesPuntos(periciaId, origen);
+  }
+
+  return `
+    <div class="pericial-bloque">
+      <h3>Puntos periciales <span class="fuente">· ${escapeHtml(fuente)}</span></h3>
+      ${acciones}
+      ${cuerpo}
+    </div>`;
+}
+
+function renderLiquidacionBloque(fuente, liquidacion, origen, periciaId){
+  if(!Array.isArray(liquidacion) || liquidacion.length === 0) return '';
+  const total = liquidacion.reduce((sum, r) => sum + parseMonto(r.monto), 0);
+  return `
+    <div class="pericial-bloque">
+      <h3 class="clickable" style="cursor:pointer;" onclick="location.hash='p/${periciaId}/liquidacion/${encodeURIComponent(origen)}'">
+        Liquidación <span class="fuente">· ${escapeHtml(fuente)}</span>
+        <span style="font-size:11px;color:var(--slate);text-transform:none;font-weight:normal;">→ ver cómo se calculó cada rubro</span>
+      </h3>
+      <table class="liq-table">
+        ${liquidacion.map(r => `<tr><td>${escapeHtml(r.rubro || '')}</td><td>${escapeHtml(r.monto || '')}</td></tr>`).join('')}
+        <tr class="total"><td>Total</td><td>${formatMonto(total)}</td></tr>
+      </table>
+    </div>`;
+}
+
+function renderPericial(p){
+  const bloques = [];
+  bloques.push(renderPuntosPericialesBloque('Demanda', p.puntos_periciales, p.postura_pericial, p.puntos_periciales_modo, p.puntos_periciales_partes, p.puntos_periciales_respuestas, p.id, 'demanda'));
+  bloques.push(renderLiquidacionBloque('Demanda', p.liquidacion, 'demanda', p.id));
+  (p.documentos || []).forEach(doc => {
+    bloques.push(renderPuntosPericialesBloque(doc.tipo_documento, doc.puntos_periciales, doc.postura_pericial, doc.puntos_periciales_modo, doc.puntos_periciales_partes, doc.puntos_periciales_respuestas, p.id, doc.id));
+    bloques.push(renderLiquidacionBloque(doc.tipo_documento, doc.liquidacion, doc.id, p.id));
+  });
+  const contenido = bloques.filter(Boolean).join('');
+  document.getElementById('pericial-content').innerHTML = contenido || `
+    <div class="pericial-empty">Todavía no hay puntos periciales ni liquidaciones cargadas para este expediente.
+    Se completan solos cuando la demanda o la contestación los mencionan y los analizás con IA.</div>`;
+}
+
+function renderLiquidacionDetalle(p, origen){
+  let fuente, liquidacion;
+  if(origen === 'demanda'){
+    fuente = 'Demanda';
+    liquidacion = p.liquidacion || [];
+  } else {
+    const doc = (p.documentos || []).find(d => d.id === origen);
+    fuente = doc ? doc.tipo_documento : 'Documento';
+    liquidacion = doc ? (doc.liquidacion || []) : [];
+  }
+  const total = liquidacion.reduce((sum, r) => sum + parseMonto(r.monto), 0);
+
+  const items = liquidacion.map(r => `
+    <div class="calculo-item">
+      <div class="rubro"><span>${escapeHtml(r.rubro || '')}</span><span class="monto">${escapeHtml(r.monto || '')}</span></div>
+      ${r.detalle_calculo
+        ? `<div class="detalle">${escapeHtml(r.detalle_calculo)}</div>`
+        : `<div class="sin-detalle">El escrito no detalla cómo se calculó este rubro, solo indica el monto.</div>`
+      }
+    </div>`).join('');
+
+  document.getElementById('liquidacion-content').innerHTML = `
+    <h2 style="color:var(--folder-dark);margin-bottom:2px;">Liquidación · ${escapeHtml(fuente)}</h2>
+    <p style="color:var(--slate);font-size:13px;margin:0 0 20px;">${escapeHtml(p.caratula || '')}</p>
+    ${items || '<div class="pericial-empty">No hay rubros cargados.</div>'}
+    ${liquidacion.length ? `<div class="calculo-item" style="border:none;background:transparent;padding-top:0;"><div class="rubro" style="font-size:17px;"><span>Total</span><span class="monto">${formatMonto(total)}</span></div></div>` : ''}
+  `;
+}
+
+function renderDatosClaveGrid(datosClave){
+  if(!Array.isArray(datosClave) || datosClave.length === 0) return '';
+  return `<div class="ficha-madre-grid" style="margin-top:2px;">${datosClave.map(d => `
+    <div><span class="lbl">${escapeHtml(d.label || '')}</span>${escapeHtml(d.valor || '—')}</div>
+  `).join('')}</div>`;
+}
+
+function renderDetail(p){
+  const color = ESTADO_COLOR[p.estado] || 'var(--slate)';
+  const vClass = venciClass(p.vencimiento, p.estado);
+
+  const documentos = p.documentos || [];
+  const contestacionDoc = documentos.find(d => (d.tipo_documento || '').toLowerCase().includes('contestaci'));
+  const otrosDocumentos = documentos.filter(d => d !== contestacionDoc);
+
+  const tabDemanda = 'Designación';
+  const tabContestacion = `${escapeHtml(contestacionDoc && contestacionDoc.tipo_documento || 'Contestación de demanda')} · ${contestacionDoc ? fmtDate(contestacionDoc.fecha) : ''}`;
+
+  const vistaContestacionHtml = contestacionDoc ? `
+    <div id="vista-contestacion" class="hidden">
+      <button class="doc-toggle doc-toggle-left" id="btn-doc-toggle-left" onclick="toggleContestacionView()" title="Volver a la demanda">←</button>
+      <span class="contestacion-tag">${escapeHtml(contestacionDoc.tipo_documento || 'Contestación de demanda')}</span>
+      <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
+      <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · Expte. ${escapeHtml(p.expediente || 's/n°')} · ${fmtDate(contestacionDoc.fecha)}</div>
+      ${renderDatosClaveGrid(contestacionDoc.datos_clave)}
+      ${contestacionDoc.resumen
+        ? `<div class="resumen" style="${(contestacionDoc.datos_clave||[]).length ? '' : 'border-top:none;padding-top:0;margin-top:0;'}">${escapeHtml(contestacionDoc.resumen).replace(/\n/g,'<br>')}</div>`
+        : `<div class="resumen" style="border-top:none;padding-top:0;margin-top:0;color:var(--slate);font-style:italic;">Todavía no hay datos cargados de la contestación.</div>`}
+      <div class="ficha-madre-actions">
+        <button class="btn btn-ghost btn-small" onclick="deleteDocumento('${p.id}','${contestacionDoc.id}')">Eliminar contestación</button>
+      </div>
+    </div>` : '';
+
+  document.getElementById('detail-header').innerHTML = `
+    <div class="ficha-madre" id="bloque-header" data-tab-label="${tabDemanda}" data-tab-demanda="${escapeHtml(tabDemanda)}" data-tab-contestacion="${tabContestacion}">
+      <div id="vista-demanda">
+        ${contestacionDoc ? `<button class="doc-toggle doc-toggle-right" id="btn-doc-toggle-right" onclick="toggleContestacionView()" title="Ver contestación de demanda">→</button>` : ''}
+        <h2>${escapeHtml(p.caratula || '(sin carátula cargada)')}</h2>
+        <div class="juzgado-line">${escapeHtml(p.juzgado || 'Juzgado no especificado')} · Expte. ${escapeHtml(p.expediente || 's/n°')}</div>
+        <div class="ficha-madre-grid">
+          <div><span class="lbl">Perito contador designado</span>${escapeHtml(p.contador || '—')}</div>
+          <div><span class="lbl">Fecha de designación</span>${fmtDate(p.fecha_designacion)}</div>
+          <div><span class="lbl">Estado actual</span><span class="estado-pill" style="--estado:${color}">${escapeHtml(p.estado)}</span></div>
+          <div><span class="lbl">Próximo vencimiento</span><span class="${vClass}">${fmtDate(p.vencimiento)}</span></div>
+        </div>
+        ${renderDatosClaveGrid(p.datos_clave)}
+        ${p.resumen ? `<div class="resumen">${escapeHtml(p.resumen).replace(/\n/g,'<br>')}</div>` : ''}
+        <div class="ficha-madre-actions">
+          <button class="btn btn-ghost btn-small" onclick="openForm('${p.id}')">Editar datos del expediente</button>
+          <button class="btn btn-alert btn-small" onclick="deletePericiaById('${p.id}')">Eliminar pericia</button>
+        </div>
+      </div>
+      ${vistaContestacionHtml}
+    </div>
+  `;
+
+  document.getElementById('detail-documentos').innerHTML = otrosDocumentos.map(doc => `
+    <div class="ficha-madre ficha-documento" id="bloque-doc-${doc.id}" data-tab-label="${escapeHtml(doc.tipo_documento || 'Documento')} · ${fmtDate(doc.fecha)}">
+      <div class="doc-actions">
+        <button class="nov-del" onclick="deleteDocumento('${p.id}','${doc.id}')">Eliminar</button>
+      </div>
+      ${renderDatosClaveGrid(doc.datos_clave)}
+      ${doc.resumen ? `<div class="resumen" style="${(doc.datos_clave||[]).length ? '' : 'border-top:none;padding-top:0;margin-top:0;'}">${escapeHtml(doc.resumen).replace(/\n/g,'<br>')}</div>` : ''}
+    </div>
+  `).join('');
+
+  document.getElementById('detail-nov-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('detail-ai-texto').value = '';
+  document.getElementById('detail-ai-archivo').value = '';
+  document.getElementById('detail-ai-status').textContent = '';
+  document.getElementById('detail-ai-preview').classList.add('hidden');
+  document.getElementById('detail-ai-preview').innerHTML = '';
+  document.getElementById('detail-ai-box').style.display = (config && config.workerUrl) ? 'block' : 'none';
+  document.getElementById('buscar-box').classList.add('hidden');
+  document.getElementById('buscar-input').value = '';
+  document.getElementById('buscar-status').textContent = '';
+
+  novFiltroActual = 'todas';
+  novOrigenManual = null;
+  renderNovOrigenToggle();
+  renderNovedadesList(p);
+}
+
+/* ---------- Novedades: clasificación personal vs. expediente ---------- */
+let novFiltroActual = 'todas';
+let novOrigenManual = null; // null = auto, o 'personal' / 'expediente' si el usuario lo forzó
+
+function classifyNovedadTexto(texto){
+  return (texto || '').trim().length > 180 ? 'expediente' : 'personal';
+}
+
+function inferNovedadOrigen(n){
+  return n.origen === 'personal' || n.origen === 'expediente' ? n.origen : classifyNovedadTexto(n.texto);
+}
+
+function onNovTextoInput(){
+  if(novOrigenManual) return; // el usuario ya eligió a mano, no lo pisamos
+  const texto = document.getElementById('detail-nov-texto').value;
+  renderNovOrigenToggle(classifyNovedadTexto(texto));
+}
+
+function setNovOrigenManual(origen){
+  novOrigenManual = origen;
+  renderNovOrigenToggle(origen);
+}
+
+function renderNovOrigenToggle(activo){
+  const texto = document.getElementById('detail-nov-texto');
+  const origenActivo = activo || novOrigenManual || classifyNovedadTexto(texto ? texto.value : '');
+  document.querySelectorAll('#nov-origen-toggle .nov-origen-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-origen') === origenActivo);
+  });
+}
+
+function setNovFiltro(filtro){
+  novFiltroActual = filtro;
+  document.querySelectorAll('#nov-filter .nov-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-filtro') === filtro);
+  });
+  const route = currentRoute();
+  if(route.view === 'detail'){
+    const p = pericias.find(x => x.id === route.id);
+    if(p) renderNovedadesList(p);
+  }
+}
+
+function renderNovedadesList(p){
+  const todas = [...p.novedades].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const filtradas = novFiltroActual === 'todas'
+    ? todas
+    : todas.filter(n => inferNovedadOrigen(n) === novFiltroActual);
+
+  const container = document.getElementById('detail-novedades');
+  if(todas.length === 0){
+    container.innerHTML = '<div class="no-novedades">Sin novedades registradas todavía. Agregá la primera abajo.</div>';
+    return;
+  }
+  if(filtradas.length === 0){
+    container.innerHTML = '<div class="no-novedades">No hay novedades que coincidan con este filtro.</div>';
+    return;
+  }
+  container.innerHTML = filtradas.map(n => {
+    const origen = inferNovedadOrigen(n);
+    const esPersonal = origen === 'personal';
+    return `
+        <article class="nov-card" id="bloque-nov-${n.id}" data-tab-label="${fmtDate(n.fecha)}" style="--tab-color:${esPersonal ? 'var(--teal)' : 'var(--brass)'};">
+          <button class="nov-del" onclick="deleteNovedad('${p.id}','${n.id}')">Eliminar</button>
+          <span class="nov-tag ${esPersonal ? 'nov-tag-personal' : 'nov-tag-expediente'}">${esPersonal ? 'Anotación' : 'Expediente'}</span>
+          <div class="nov-texto">${escapeHtml(n.texto)}</div>
+        </article>
+      `;
+  }).join('');
+}
+
+function toggleContestacionView(){
+  const bloque = document.getElementById('bloque-header');
+  const vDemanda = document.getElementById('vista-demanda');
+  const vContest = document.getElementById('vista-contestacion');
+  if(!bloque || !vDemanda || !vContest) return;
+
+  const mostrandoContestacion = !vContest.classList.contains('hidden');
+  if(mostrandoContestacion){
+    vContest.classList.add('hidden');
+    vDemanda.classList.remove('hidden');
+    bloque.classList.remove('ficha-documento');
+    bloque.setAttribute('data-tab-label', bloque.getAttribute('data-tab-demanda') || 'DESIGNACIÓN · EXPEDIENTE');
+  } else {
+    vDemanda.classList.add('hidden');
+    vContest.classList.remove('hidden');
+    bloque.classList.add('ficha-documento');
+    bloque.setAttribute('data-tab-label', bloque.getAttribute('data-tab-contestacion') || 'CONTESTACIÓN DE DEMANDA');
+  }
+}
+
+async function addNovedadDetail(){
+  const route = currentRoute();
+  if(route.view !== 'detail') return;
+  const fechaInput = document.getElementById('detail-nov-fecha');
+  const textoInput = document.getElementById('detail-nov-texto');
+  const texto = textoInput.value.trim();
+  if(!texto){ textoInput.focus(); return; }
+  const origen = novOrigenManual || classifyNovedadTexto(texto);
+  const p = pericias.find(x => x.id === route.id);
+  p.novedades.push({ id: uid(), fecha: fechaInput.value || new Date().toISOString().slice(0,10), texto, origen });
+  textoInput.value = '';
+  novOrigenManual = null;
+  renderNovOrigenToggle('personal');
+  renderStats(); renderRoute();
+  await persist(`Novedad en expte. ${p.expediente || p.id}`);
+}
+
+async function deleteNovedad(periciaId, novedadId){
+  if(!confirm('¿Eliminar esta novedad?')) return;
+  const p = pericias.find(x => x.id === periciaId);
+  p.novedades = p.novedades.filter(n => n.id !== novedadId);
+  renderStats(); renderRoute();
+  await persist(`Elimina novedad en expte. ${p.expediente || p.id}`);
+}
+
+/* ---------- Modal pericia ---------- */
+/* ---------- Completar con IA (vía Cloudflare Worker) ---------- */
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result; // data:<mime>;base64,<data>
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ---------- Resolver puntos periciales con IA (a partir de documentación contable) ---------- */
+function toggleModoResolverIA(){
+  modoResolverIA = !modoResolverIA;
+  const btn = document.getElementById('btn-toggle-resolver-ia');
+  if(btn) btn.textContent = modoResolverIA ? 'Cerrar resolver con IA' : 'Resolver con IA';
+  const route = currentRoute();
+  const p = pericias.find(x => x.id === route.id);
+  if(p) renderPericial(p);
+}
+
+function toggleResolverIA(origen){
+  const panel = document.getElementById('resolver-panel-' + origen);
+  if(panel) panel.classList.toggle('hidden');
+}
+
+// Acumula archivos elegidos entre distintas aperturas del selector, en vez de que
+// el navegador reemplace la selección anterior por la nueva (comportamiento nativo
+// de <input type="file">). Se guarda una lista por pericia+origen.
+const archivosAcumulados = {};
+function claveArchivos(periciaId, origen){ return periciaId + '::' + origen; }
+
+function agregarArchivosAcumulados(periciaId, origen){
+  const fileInput = document.getElementById('resolver-archivos-' + origen);
+  if(!fileInput) return;
+  const clave = claveArchivos(periciaId, origen);
+  if(!archivosAcumulados[clave]) archivosAcumulados[clave] = [];
+
+  const nuevos = Array.from(fileInput.files || []);
+  nuevos.forEach(f => {
+    const yaEsta = archivosAcumulados[clave].some(existente =>
+      existente.name === f.name && existente.size === f.size && existente.lastModified === f.lastModified
+    );
+    if(!yaEsta) archivosAcumulados[clave].push(f);
+  });
+
+  fileInput.value = ''; // limpia el input nativo para que la próxima elección no reemplace nada
+  renderListaArchivos(periciaId, origen);
+}
+
+function eliminarArchivoAcumulado(periciaId, origen, idx){
+  const clave = claveArchivos(periciaId, origen);
+  if(!archivosAcumulados[clave]) return;
+  archivosAcumulados[clave].splice(idx, 1);
+  renderListaArchivos(periciaId, origen);
+}
+
+function vaciarArchivosAcumulados(periciaId, origen){
+  const clave = claveArchivos(periciaId, origen);
+  archivosAcumulados[clave] = [];
+  renderListaArchivos(periciaId, origen);
+}
+
+function formatearTamano(bytes){
+  const mb = bytes / (1024 * 1024);
+  if(mb < 0.1) return (bytes / 1024).toFixed(0) + ' KB';
+  return mb.toFixed(1) + ' MB';
+}
+
+function renderListaArchivos(periciaId, origen){
+  const contenedor = document.getElementById('resolver-lista-' + origen);
+  if(!contenedor) return;
+  const clave = claveArchivos(periciaId, origen);
+  const files = archivosAcumulados[clave] || [];
+
+  if(!files.length){ contenedor.innerHTML = ''; return; }
+
+  const totalMB = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
+  const cantidad = files.length + (files.length === 1 ? ' archivo' : ' archivos');
+  let claseResumen = 'archivos-resumen';
+  let avisoExtra = '';
+  if(totalMB > 24){
+    claseResumen += ' archivos-alerta';
+    avisoExtra = ' — es demasiado, es muy probable que falle el análisis ("request too large"). Sacá algún archivo o comprimí los PDFs.';
+  } else if(totalMB > 15){
+    claseResumen += ' archivos-warn';
+    avisoExtra = ' — se está acercando al límite. Si el análisis falla, sacá algún archivo.';
+  }
+
+  const chips = files.map((f, idx) => `
+    <span class="archivo-chip">
+      ${escapeHtml(f.name)} <span class="archivo-tam">(${formatearTamano(f.size)})</span>
+      <button type="button" title="Sacar este archivo" onclick="eliminarArchivoAcumulado('${periciaId}','${origen}',${idx})">✕</button>
+    </span>`).join('');
+
+  contenedor.innerHTML = `
+    <div class="${claseResumen}">${cantidad} seleccionados · ${totalMB.toFixed(1)} MB en total${avisoExtra}
+      <button type="button" class="btn-vaciar-archivos" onclick="vaciarArchivosAcumulados('${periciaId}','${origen}')">Vaciar todo</button>
+    </div>
+    <div>${chips}</div>`;
+}
+
+async function guardarRespuestaPunto(periciaId, origen, parteIdx, puntoIdx, valor){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+  if(parteIdx === -1){
+    if(!Array.isArray(target.puntos_periciales_respuestas)) target.puntos_periciales_respuestas = [];
+    target.puntos_periciales_respuestas[puntoIdx] = valor;
+  } else {
+    if(!Array.isArray(target.puntos_periciales_partes) || !target.puntos_periciales_partes[parteIdx]) return;
+    const grupo = target.puntos_periciales_partes[parteIdx];
+    if(!Array.isArray(grupo.respuestas)) grupo.respuestas = [];
+    grupo.respuestas[puntoIdx] = valor;
+  }
+  await persist(`Actualiza borrador de respuesta pericial en expte. ${p.expediente || p.id}`);
+}
+
+function copiarBorradorPuntos(periciaId, origen){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+
+  const modo = target.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+  let texto = '';
+  if(modo === 'separado' && Array.isArray(target.puntos_periciales_partes)){
+    target.puntos_periciales_partes.forEach(g => {
+      const nombre = g.parte || 'Parte';
+      texto += `${nombre}\n${'-'.repeat(nombre.length)}\n\n`;
+      (g.puntos || []).forEach((pt, i) => {
+        texto += `${i + 1}. ${pt}\nRespuesta: ${(g.respuestas && g.respuestas[i]) || '(sin resolver)'}\n\n`;
+      });
+      texto += '\n';
+    });
+  } else {
+    (target.puntos_periciales || []).forEach((pt, i) => {
+      texto += `${i + 1}. ${pt}\nRespuesta: ${(target.puntos_periciales_respuestas && target.puntos_periciales_respuestas[i]) || '(sin resolver)'}\n\n`;
+    });
+  }
+
+  const btn = document.getElementById('btn-copiar-' + origen);
+  navigator.clipboard.writeText(texto.trim()).then(() => {
+    if(btn){ const orig = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  }).catch(() => {
+    alert('No se pudo copiar automáticamente. Seleccioná el texto a mano.');
+  });
+}
+
+async function resolverPuntosConIA(periciaId, origen){
+  const p = pericias.find(x => x.id === periciaId);
+  if(!p) return;
+  const target = origen === 'demanda' ? p : (p.documentos || []).find(d => d.id === origen);
+  if(!target) return;
+
+  const statusDiv = document.getElementById('resolver-status-' + origen);
+  const btn = document.getElementById('btn-resolver-' + origen);
+  const files = archivosAcumulados[claveArchivos(periciaId, origen)] || [];
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA.';
+    return;
+  }
+  if(!files.length){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Elegí al menos un archivo (libros, balances, facturas, extractos).';
+    return;
+  }
+
+  const modo = target.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+  const puntosPayload = modo === 'separado'
+    ? (target.puntos_periciales_partes || []).map(g => ({ parte: g.parte, puntos: g.puntos || [] }))
+    : (target.puntos_periciales || []);
+  const hayPuntos = modo === 'separado' ? puntosPayload.some(g => g.puntos.length) : puntosPayload.length > 0;
+  if(!hayPuntos){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'No hay puntos periciales cargados para resolver.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.style.color = 'var(--slate)';
+  statusDiv.textContent = 'Leyendo archivos…';
+
+  let archivos;
+  try{
+    archivos = await Promise.all(files.map(async f => ({
+      base64: await fileToBase64(f),
+      mediaType: f.type || 'application/octet-stream',
+      nombre: f.name
+    })));
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'No se pudo leer alguno de los archivos.';
+    btn.disabled = false;
+    return;
+  }
+
+  statusDiv.textContent = 'Analizando documentación contable con IA… puede tardar un momento.';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify({ mode: 'resolver_puntos', puntos_periciales_modo: modo, puntos: puntosPayload, archivos })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo resolver (' + (data.error || res.status) + '). Revisá el Worker.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    /* Merge punto por punto: si en esta vuelta la IA no trae una respuesta nueva
+       para un punto (porque los archivos subidos ahora no lo cubren), se conserva
+       lo que ya estaba guardado de una vuelta anterior o cargado a mano — nunca
+       se borra por venir vacío. Solo se pisa cuando llega texto nuevo real. */
+    if(modo === 'separado'){
+      if(Array.isArray(r.partes)){
+        target.puntos_periciales_partes = (target.puntos_periciales_partes || []).map((g, i) => {
+          const nuevas = (r.partes[i] && Array.isArray(r.partes[i].respuestas)) ? r.partes[i].respuestas : null;
+          if(!nuevas) return g;
+          const anteriores = Array.isArray(g.respuestas) ? g.respuestas : [];
+          return { ...g, respuestas: nuevas.map((val, pi) => ((val || '').trim() ? val : (anteriores[pi] || ''))) };
+        });
+      }
+    } else if(Array.isArray(r.respuestas)){
+      const anteriores = Array.isArray(target.puntos_periciales_respuestas) ? target.puntos_periciales_respuestas : [];
+      target.puntos_periciales_respuestas = r.respuestas.map((val, i) => ((val || '').trim() ? val : (anteriores[i] || '')));
+    }
+    await persist(`Resuelve puntos periciales con IA en expte. ${p.expediente || p.id}`);
+    renderPericial(p);
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+    btn.disabled = false;
+  }
+}
+
+async function analizarConIA(){
+  const statusDiv = document.getElementById('ai-status');
+  const btn = document.getElementById('btn-ai-analizar');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA. Podés cargar los datos a mano mientras tanto.';
+    return;
+  }
+
+  const texto = document.getElementById('ai-texto').value.trim();
+  const fileInput = document.getElementById('ai-archivo');
+  const file = fileInput.files[0];
+
+  if(!texto && !file){
+    statusDiv.textContent = 'Pegá un texto o elegí un archivo primero.';
+    return;
+  }
+
+  let body;
+  try{
+    if(file){
+      const base64 = await fileToBase64(file);
+      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf', tipo: 'inicial' };
+    } else {
+      body = { mode: 'text', text: texto, tipo: 'inicial' };
+    }
+  }catch(e){
+    statusDiv.textContent = 'No se pudo leer el archivo.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.textContent = 'Analizando con IA…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo analizar (' + (data.error || res.status) + '). Revisá el Worker o cargá a mano.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    if(r.expediente) document.getElementById('f-expediente').value = r.expediente;
+    if(r.contador) document.getElementById('f-contador').value = r.contador;
+    if(r.caratula) document.getElementById('f-caratula').value = r.caratula;
+    if(r.juzgado) setJuzgadoValue(r.juzgado);
+    if(r.estado) document.getElementById('f-estado').value = r.estado;
+    if(r.resumen) document.getElementById('f-resumen').value = r.resumen;
+    if(Array.isArray(r.datos_clave) && r.datos_clave.length){
+      document.getElementById('f-datos-clave').value = JSON.stringify(r.datos_clave);
+    }
+    if(Array.isArray(r.puntos_periciales) && r.puntos_periciales.length){
+      document.getElementById('f-puntos-periciales').value = JSON.stringify(r.puntos_periciales);
+    }
+    if(r.puntos_periciales_modo === 'separado' && Array.isArray(r.puntos_periciales_partes) && r.puntos_periciales_partes.length){
+      document.getElementById('f-puntos-periciales-modo').value = 'separado';
+      document.getElementById('f-puntos-periciales-partes').value = JSON.stringify(r.puntos_periciales_partes);
+    }
+    if(r.postura_pericial){
+      document.getElementById('f-postura-pericial').value = r.postura_pericial;
+    }
+    if(Array.isArray(r.liquidacion) && r.liquidacion.length){
+      document.getElementById('f-liquidacion').value = JSON.stringify(r.liquidacion);
+    }
+    statusDiv.style.color = 'var(--ok)';
+    statusDiv.textContent = '✓ Listo — revisá los campos antes de guardar, la IA puede equivocarse.' + (data.truncado ? ' (Aviso: el texto era muy largo y se analizó solo una parte.)' : '');
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+  btn.disabled = false;
+}
+
+async function analizarNovedadConIA(){
+  const statusDiv = document.getElementById('detail-ai-status');
+  const btn = document.getElementById('btn-detail-ai-analizar');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA. Podés cargar la novedad a mano.';
+    return;
+  }
+
+  const texto = document.getElementById('detail-ai-texto').value.trim();
+  const fileInput = document.getElementById('detail-ai-archivo');
+  const file = fileInput.files[0];
+
+  if(!texto && !file){
+    statusDiv.textContent = 'Pegá un texto o elegí un archivo primero.';
+    return;
+  }
+
+  let body;
+  try{
+    if(file){
+      const base64 = await fileToBase64(file);
+      body = { mode: 'file', fileBase64: base64, fileMediaType: file.type || 'application/pdf', tipo: 'novedad' };
+    } else {
+      body = { mode: 'text', text: texto, tipo: 'novedad' };
+    }
+  }catch(e){
+    statusDiv.textContent = 'No se pudo leer el archivo.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusDiv.textContent = 'Analizando con IA…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo analizar (' + (data.error || res.status) + '). Revisá el Worker o cargá a mano.';
+      btn.disabled = false;
+      return;
+    }
+    const r = data.result;
+    const truncadoTxt = data.truncado ? ' (Aviso: el texto era muy largo y se analizó solo una parte.)' : '';
+
+    if(r.clasificacion === 'documento_principal'){
+      pendingDocPrincipal = {
+        tipo_documento: r.tipo_documento || 'Documento',
+        fecha: r.fecha || new Date().toISOString().slice(0,10),
+        datos_clave: Array.isArray(r.datos_clave) ? r.datos_clave : [],
+        puntos_periciales: Array.isArray(r.puntos_periciales) ? r.puntos_periciales : [],
+        puntos_periciales_modo: r.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto',
+        puntos_periciales_partes: (r.puntos_periciales_modo === 'separado' && Array.isArray(r.puntos_periciales_partes)) ? r.puntos_periciales_partes : [],
+        postura_pericial: r.postura_pericial || '',
+        liquidacion: Array.isArray(r.liquidacion) ? r.liquidacion : [],
+        resumen: r.resumen || ''
+      };
+      renderAiPreview();
+      statusDiv.style.color = 'var(--ok)';
+      statusDiv.textContent = '✓ La IA detectó que es un documento principal ("' + pendingDocPrincipal.tipo_documento + '"). Revisá abajo.' + truncadoTxt;
+    } else {
+      pendingDocPrincipal = null;
+      document.getElementById('detail-ai-preview').classList.add('hidden');
+      if(r.fecha) document.getElementById('detail-nov-fecha').value = r.fecha;
+      if(r.resumen_novedad) document.getElementById('detail-nov-texto').value = r.resumen_novedad;
+      novOrigenManual = null;
+      onNovTextoInput();
+      statusDiv.style.color = 'var(--ok)';
+      statusDiv.textContent = '✓ Listo — revisá el texto de abajo antes de tocar "Agregar", la IA puede equivocarse.' + truncadoTxt;
+    }
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+  btn.disabled = false;
+}
+
+let pendingDocPrincipal = null;
+
+function renderAiPreview(){
+  const preview = document.getElementById('detail-ai-preview');
+  if(!pendingDocPrincipal){ preview.classList.add('hidden'); preview.innerHTML=''; return; }
+  const d = pendingDocPrincipal;
+  preview.classList.remove('hidden');
+  preview.innerHTML = `
+    <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-dark);margin-bottom:8px;">${escapeHtml(d.tipo_documento)} · ${fmtDate(d.fecha)}</div>
+    ${renderDatosClaveGrid(d.datos_clave)}
+    <div style="font-size:14px;line-height:1.5;margin-top:10px;">${escapeHtml(d.resumen)}</div>
+    ${(function(){
+      const html = buildPuntosPericialesHtml(d.puntos_periciales, d.postura_pericial, d.puntos_periciales_modo, d.puntos_periciales_partes);
+      if(!html) return '';
+      const etiqueta = d.postura_pericial ? 'Postura sobre la prueba pericial' : 'Puntos periciales detectados';
+      return `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">${etiqueta}</span>${html}</div>`;
+    })()}
+    ${d.liquidacion && d.liquidacion.length ? `<div style="margin-top:10px;"><span class="lbl" style="display:block;font-size:9.5px;color:var(--slate);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;">Liquidación detectada</span><table class="liq-table">${d.liquidacion.map(r=>`<tr><td>${escapeHtml(r.rubro||'')}</td><td>${escapeHtml(r.monto||'')}</td></tr>`).join('')}</table></div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-brass btn-small" onclick="confirmarDocumentoPrincipal()">Agregar como documento principal</button>
+      <button class="btn btn-ghost btn-small" onclick="tratarComoNovedadSimple()">Tratar como novedad simple</button>
+    </div>
+  `;
+}
+
+async function confirmarDocumentoPrincipal(){
+  const route = currentRoute();
+  if(route.view !== 'detail' || !pendingDocPrincipal) return;
+  const p = pericias.find(x => x.id === route.id);
+  if(!p.documentos) p.documentos = [];
+  p.documentos.push({ id: uid(), ...pendingDocPrincipal });
+  const tipoGuardado = pendingDocPrincipal.tipo_documento;
+  pendingDocPrincipal = null;
+  document.getElementById('detail-ai-texto').value = '';
+  document.getElementById('detail-ai-archivo').value = '';
+  document.getElementById('detail-ai-status').textContent = '';
+  renderRoute();
+  await persist(`Agrega ${tipoGuardado} en expte. ${p.expediente || p.id}`);
+}
+
+function tratarComoNovedadSimple(){
+  if(!pendingDocPrincipal) return;
+  document.getElementById('detail-nov-fecha').value = pendingDocPrincipal.fecha;
+  document.getElementById('detail-nov-texto').value = pendingDocPrincipal.resumen;
+  pendingDocPrincipal = null;
+  novOrigenManual = null;
+  onNovTextoInput();
+  document.getElementById('detail-ai-preview').classList.add('hidden');
+  document.getElementById('detail-ai-status').textContent = 'Copiado abajo como novedad simple — revisá y tocá "Agregar".';
+}
+
+async function deleteDocumento(periciaId, docId){
+  if(!confirm('¿Eliminar este documento?')) return;
+  const p = pericias.find(x => x.id === periciaId);
+  p.documentos = (p.documentos || []).filter(d => d.id !== docId);
+  renderRoute();
+  await persist(`Elimina documento en expte. ${p.expediente || p.id}`);
+}
+
+/* ---------- Búsqueda con IA dentro de un juicio ---------- */
+function armarBloquesBusqueda(p){
+  const bloques = [];
+  const textoHeader = [
+    p.resumen || '',
+    ...(p.datos_clave || []).map(d => `${d.label}: ${d.valor}`)
+  ].filter(Boolean).join(' — ');
+  bloques.push({ id: 'header', texto: `Ficha del expediente (designación, estado, datos generales). ${textoHeader}` });
+
+  (p.documentos || []).forEach(doc => {
+    const textoDoc = [
+      doc.resumen || '',
+      ...(doc.datos_clave || []).map(d => `${d.label}: ${d.valor}`),
+      ...(doc.puntos_periciales || []),
+      doc.postura_pericial || ''
+    ].filter(Boolean).join(' — ');
+    bloques.push({ id: 'doc-' + doc.id, texto: `${doc.tipo_documento || 'Documento'} (${fmtDate(doc.fecha)}). ${textoDoc}` });
+  });
+
+  (p.novedades || []).forEach(n => {
+    bloques.push({ id: 'nov-' + n.id, texto: `Novedad del ${fmtDate(n.fecha)}. ${n.texto}` });
+  });
+
+  return bloques;
+}
+
+function irABloque(id){
+  const el = document.getElementById('bloque-' + id);
+  if(!el) return false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('resaltado');
+  void el.offsetWidth; // reinicia la animación si ya se había resaltado antes
+  el.classList.add('resaltado');
+  return true;
+}
+
+async function ejecutarBusqueda(){
+  const route = currentRoute();
+  if(route.view !== 'detail') return;
+  const p = pericias.find(x => x.id === route.id);
+  const query = document.getElementById('buscar-input').value.trim();
+  const statusDiv = document.getElementById('buscar-status');
+  statusDiv.style.color = 'var(--slate)';
+
+  if(!query){ statusDiv.textContent = 'Escribí qué estás buscando.'; return; }
+  if(!config || !config.workerUrl || !config.workerKey){
+    statusDiv.textContent = 'Todavía no configuraste el Worker de IA — sin eso, la búsqueda no funciona.';
+    return;
+  }
+
+  const bloques = armarBloquesBusqueda(p);
+  statusDiv.textContent = 'Buscando…';
+  try{
+    const res = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-Key': config.workerKey },
+      body: JSON.stringify({ tipo: 'buscar', query, bloques })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.result || !data.result.mejor_id){
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'No se pudo buscar (' + (data.error || res.status) + ').';
+      return;
+    }
+    const encontrado = irABloque(data.result.mejor_id);
+    if(encontrado){
+      statusDiv.style.color = 'var(--ok)';
+      statusDiv.textContent = '✓ Encontrado.';
+    } else {
+      statusDiv.style.color = 'var(--alert)';
+      statusDiv.textContent = 'La IA no encontró una coincidencia clara para esa búsqueda.';
+    }
+  }catch(e){
+    statusDiv.style.color = 'var(--alert)';
+    statusDiv.textContent = 'Error de conexión con el Worker.';
+  }
+}
+
+function openForm(id){
+  const overlay = document.getElementById('modal-overlay');
+  const title = document.getElementById('modal-title');
+  const delBtn = document.getElementById('btn-eliminar');
+  if(id){
+    const p = pericias.find(x => x.id === id);
+    title.textContent = 'Editar pericia';
+    document.getElementById('f-id').value = p.id;
+    document.getElementById('f-expediente').value = p.expediente || '';
+    document.getElementById('f-contador').value = p.contador || '';
+    document.getElementById('f-caratula').value = p.caratula || '';
+    setJuzgadoValue(p.juzgado || '');
+    document.getElementById('f-resumen').value = p.resumen || '';
+    document.getElementById('f-datos-clave').value = JSON.stringify(p.datos_clave || []);
+    document.getElementById('f-puntos-periciales').value = JSON.stringify(p.puntos_periciales || []);
+    document.getElementById('f-puntos-periciales-modo').value = p.puntos_periciales_modo === 'separado' ? 'separado' : 'conjunto';
+    document.getElementById('f-puntos-periciales-partes').value = JSON.stringify(p.puntos_periciales_partes || []);
+    document.getElementById('f-postura-pericial').value = p.postura_pericial || '';
+    document.getElementById('f-liquidacion').value = JSON.stringify(p.liquidacion || []);
+    document.getElementById('f-estado').value = p.estado;
+    document.getElementById('f-vencimiento').value = p.vencimiento || '';
+    delBtn.style.display = 'inline-block';
+  } else {
+    title.textContent = 'Nueva pericia';
+    document.getElementById('f-id').value = '';
+    document.getElementById('f-expediente').value = '';
+    document.getElementById('f-contador').value = '';
+    document.getElementById('f-caratula').value = '';
+    setJuzgadoValue('');
+    document.getElementById('f-resumen').value = '';
+    document.getElementById('f-datos-clave').value = '[]';
+    document.getElementById('f-puntos-periciales').value = '[]';
+    document.getElementById('f-puntos-periciales-modo').value = 'conjunto';
+    document.getElementById('f-puntos-periciales-partes').value = '[]';
+    document.getElementById('f-postura-pericial').value = '';
+    document.getElementById('f-liquidacion').value = '[]';
+    document.getElementById('f-estado').value = 'Designada / aceptación pendiente';
+    document.getElementById('f-vencimiento').value = '';
+    delBtn.style.display = 'none';
+  }
+  populateFilters();
+  document.getElementById('ai-texto').value = '';
+  document.getElementById('ai-archivo').value = '';
+  document.getElementById('ai-status').textContent = '';
+  document.getElementById('ai-box').style.display = (config && config.workerUrl) ? 'block' : 'none';
+  overlay.classList.remove('hidden');
+}
+function closeForm(){ document.getElementById('modal-overlay').classList.add('hidden'); }
+
+async function saveForm(){
+  const id = document.getElementById('f-id').value;
+  const expediente = document.getElementById('f-expediente').value.trim();
+  const contador = document.getElementById('f-contador').value.trim();
+  const caratula = document.getElementById('f-caratula').value.trim();
+  const juzgado = getJuzgadoValue();
+  const resumen = document.getElementById('f-resumen').value.trim();
+  let datosClave = [];
+  try{ datosClave = JSON.parse(document.getElementById('f-datos-clave').value || '[]'); }catch(e){ datosClave = []; }
+  let puntosPericiales = [];
+  try{ puntosPericiales = JSON.parse(document.getElementById('f-puntos-periciales').value || '[]'); }catch(e){ puntosPericiales = []; }
+  const puntosPericialesModo = document.getElementById('f-puntos-periciales-modo').value === 'separado' ? 'separado' : 'conjunto';
+  let puntosPericialesPartes = [];
+  try{ puntosPericialesPartes = JSON.parse(document.getElementById('f-puntos-periciales-partes').value || '[]'); }catch(e){ puntosPericialesPartes = []; }
+  const posturaPericial = document.getElementById('f-postura-pericial').value.trim();
+  let liquidacion = [];
+  try{ liquidacion = JSON.parse(document.getElementById('f-liquidacion').value || '[]'); }catch(e){ liquidacion = []; }
+  const estado = document.getElementById('f-estado').value;
+  const vencimiento = document.getElementById('f-vencimiento').value;
+  if(!expediente && !caratula){ alert('Cargá al menos el número de expediente o la carátula.'); return; }
+
+  let message;
+  if(id){
+    const p = pericias.find(x => x.id === id);
+    Object.assign(p, { expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, puntos_periciales_modo: puntosPericialesModo, puntos_periciales_partes: puntosPericialesPartes, postura_pericial: posturaPericial, liquidacion, estado, vencimiento });
+    message = `Actualiza pericia expte. ${expediente || id}`;
+  } else {
+    pericias.push({ id: uid(), expediente, contador, caratula, juzgado, resumen, datos_clave: datosClave, puntos_periciales: puntosPericiales, puntos_periciales_modo: puntosPericialesModo, puntos_periciales_partes: puntosPericialesPartes, postura_pericial: posturaPericial, liquidacion, estado, vencimiento, fecha_designacion: new Date().toISOString().slice(0,10), novedades: [], documentos: [] });
+    message = `Nueva pericia expte. ${expediente || 's/n°'}`;
+  }
+  renderAll();
+  closeForm();
+  await persist(message);
+}
+
+async function deletePericiaById(id){
+  if(!id) return;
+  if(!confirm('¿Eliminar esta pericia y todas sus novedades? Esta acción no se puede deshacer.')) return;
+  const p = pericias.find(x => x.id === id);
+  pericias = pericias.filter(x => x.id !== id);
+  closeForm();
+  if(currentRoute().id === id) location.hash = '';
+  renderAll();
+  await persist(`Elimina pericia expte. ${p ? p.expediente || id : id}`);
+}
+async function deletePericia(){
+  await deletePericiaById(document.getElementById('f-id').value);
+}
+
+/* ---------- Pantalla de PIN ---------- */
+function openPinPrompt(){
+  document.getElementById('cfg-pin').value = '';
+  document.getElementById('pin-error').style.display = 'none';
+  setLoginStatus('');
+  document.getElementById('config-overlay').classList.remove('hidden');
+  document.getElementById('cfg-pin').focus();
+}
+function closePinPrompt(){ document.getElementById('config-overlay').classList.add('hidden'); }
+
+async function submitPin(){
+  const pin = document.getElementById('cfg-pin').value;
+  const errorDiv = document.getElementById('pin-error');
+  errorDiv.style.display = 'none';
+  if(!pin){ return; }
+  document.getElementById('btn-entrar-pin').disabled = true;
+  try{
+    setLoginStatus('Verificando PIN…');
+    const blob = await fetchEncryptedConfig();
+    const decoded = await decryptConfig(pin, blob); // {owner, repo, branch, token}
+    if(decoded.workerUrl){
+      decoded.workerUrl = decoded.workerUrl.trim();
+      if(decoded.workerUrl && !/^https?:\/\//i.test(decoded.workerUrl)){
+        decoded.workerUrl = 'https://' + decoded.workerUrl;
+      }
+      decoded.workerUrl = decoded.workerUrl.replace(/\/+$/, ''); // sin barra final
+    }
+    const dataKey = await deriveDataKey(pin, b64ToBytes(blob.salt), blob.iterations);
+    decoded.dataKey = dataKey;
+    saveSessionConfig(decoded);
+    await connectAndLoad();
+  }catch(e){
+    errorDiv.textContent = 'PIN incorrecto. Probá de nuevo.';
+    errorDiv.style.display = 'block';
+    setLoginStatus('');
+  }
+  document.getElementById('btn-entrar-pin').disabled = false;
+}
+
+function lockApp(){
+  clearSession();
+  pericias = [];
+  hideApp();
+  openPinPrompt();
+}
+
+document.getElementById('btn-nueva').addEventListener('click', () => openForm(null));
+document.getElementById('btn-cancelar').addEventListener('click', closeForm);
+document.getElementById('btn-guardar').addEventListener('click', saveForm);
+document.getElementById('btn-eliminar').addEventListener('click', deletePericia);
+document.getElementById('search').addEventListener('input', renderList);
+document.getElementById('filter-contador').addEventListener('change', renderList);
+document.getElementById('filter-organismo').addEventListener('change', renderList);
+document.getElementById('filter-estado').addEventListener('change', renderList);
+document.getElementById('sort-by').addEventListener('change', renderList);
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeForm(); });
+document.getElementById('btn-config').addEventListener('click', lockApp);
+document.getElementById('btn-entrar-pin').addEventListener('click', submitPin);
+document.getElementById('cfg-pin').addEventListener('keydown', (e) => { if(e.key === 'Enter') submitPin(); });
+document.getElementById('btn-volver').addEventListener('click', () => { location.hash = ''; });
+document.getElementById('btn-pericial').addEventListener('click', () => {
+  const route = currentRoute();
+  if(route.id) location.hash = 'p/' + route.id + '/pericial';
+});
+document.getElementById('btn-volver-detalle').addEventListener('click', () => {
+  const route = currentRoute();
+  if(route.id) location.hash = 'p/' + route.id;
+});
+document.getElementById('btn-volver-pericial').addEventListener('click', () => {
+  const route = currentRoute();
+  if(route.id) location.hash = 'p/' + route.id + '/pericial';
+});
+document.getElementById('btn-buscar').addEventListener('click', () => {
+  const box = document.getElementById('buscar-box');
+  box.classList.toggle('hidden');
+  if(!box.classList.contains('hidden')) document.getElementById('buscar-input').focus();
+});
+document.getElementById('btn-buscar-ir').addEventListener('click', ejecutarBusqueda);
+document.getElementById('buscar-input').addEventListener('keydown', (e) => { if(e.key === 'Enter') ejecutarBusqueda(); });
+document.getElementById('btn-detail-agregar').addEventListener('click', addNovedadDetail);
+document.getElementById('btn-ai-analizar').addEventListener('click', analizarConIA);
+document.getElementById('btn-detail-ai-analizar').addEventListener('click', analizarNovedadConIA);
+poblarSelectJuzgado();
+document.getElementById('f-juzgado').addEventListener('change', () => {
+  const sel = document.getElementById('f-juzgado');
+  const otro = document.getElementById('f-juzgado-otro');
+  if(sel.value === '__otro__'){
+    otro.classList.remove('hidden');
+    otro.focus();
+  } else {
+    otro.classList.add('hidden');
+    otro.value = '';
+  }
+});
+window.addEventListener('hashchange', renderRoute);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker no registrado:', err));
+  });
+}
+
+(async function init(){
+  loadSessionConfig();
+  await connectAndLoad();
+})();
+</script>
+</body>
+</html>
